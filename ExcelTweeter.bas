@@ -18,6 +18,7 @@ Private Const reqt_url = "http://api.twitter.com/oauth/request_token"
 Private Const auth_url = "https://api.twitter.com/oauth/authorize"
 Private Const acct_url = "http://api.twitter.com/oauth/access_token"
 Private Const post_url = "https://api.twitter.com/1/statuses/update.xml"
+Private Const retw_url = "https://api.twitter.com/1/statuses/retweet/" ' & statusid & ".xml"
 'Private Const frtl_url = "https://api.twitter.com/1/statuses/friends_timeline.xml"
 'Private Const hmtl_url = "https://api.twitter.com/1/statuses/home_timeline.xml"
 Private Const timeline_url = "https://api.twitter.com/1/statuses/"
@@ -30,6 +31,11 @@ Public Enum TimeLineName
   retweeted_by_me = 6
   retweeted_to_me = 7
   retweets_of_me = 8
+End Enum
+Public Enum TweetType
+  Default_Tweet = 1
+  Reply_Tweet = 2
+  Re_Tweet = 3 '公式リツート
 End Enum
 '-----------------------------------
 'ConsumerKey
@@ -85,10 +91,15 @@ ErrorHandler:
   DelTokenFile = False
 End Function
 
-Public Function TweetPost(strPost As String) As String
+Public Function TweetPost( _
+  strPost As String, _
+  Optional Tweet_type As TweetType = Default_Tweet, _
+  Optional strStatusID As String = "" _
+) As String
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Object  'Scripting.Dictionary
   Dim reqdata As String
+  Dim strReqURL As String
   Dim digest As String
   Dim buf() As Byte
   Dim res As String
@@ -110,11 +121,26 @@ Public Function TweetPost(strPost As String) As String
   
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
-  param("status") = UrlEncode(strPost)
-  strSig = MakeSignature("POST", post_url, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
+  If Tweet_type = Re_Tweet Then
+      strReqURL = retw_url & strStatusID & ".xml"
+      If strStatusID = "" Then
+        MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
+        TweetPost = ""
+        Exit Function
+      End If
+      param("id") = CStr(strStatusID)
+  Else
+    strReqURL = post_url
+    param("status") = UrlEncode(Left(strPost, 140)) '140文字
+    '返信の場合は返信元ＩＤを入れる
+    If Tweet_type = Reply_Tweet And strStatusID <> "" Then
+      param("in_reply_to_status_id") = CStr(strStatusID)
+    End If
+  End If
+  strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = UrlEncode(strSig)
   
-  Set xhr = CreateRequest("POST", post_url)
+  Set xhr = CreateRequest("POST", strReqURL)
   If xhr Is Nothing Then
     MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
     TweetPost = 0
@@ -249,8 +275,16 @@ Public Function GetTimeLine _
   For Each objStatus In Statuses.childNodes
     strTimeLine(i, 0) = objStatus.selectSingleNode("id").FirstChild.nodeValue
     strTimeLine(i, 1) = html_escape(objStatus.selectSingleNode("user/screen_name").FirstChild.nodeValue)
-    strTimeLine(i, 2) = html_escape(objStatus.selectSingleNode("text").FirstChild.nodeValue)
-    strTimeLine(i, 3) = html_escape(Format(ConvertCreateTime(objStatus.selectSingleNode("created_at").FirstChild.nodeValue), "  yy-mm-dd h:mm"))
+    If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
+      strTimeLine(i, 2) = html_escape(objStatus.selectSingleNode("text").FirstChild.nodeValue)
+    Else
+      '公式リツート対応
+      strTimeLine(i, 2) = objStatus.selectSingleNode("retweeted_status/user/screen_name").FirstChild.nodeValue
+      strTimeLine(i, 2) = "RT @" & strTimeLine(i, 2) & ": "
+      strTimeLine(i, 2) = html_escape(strTimeLine(i, 2)) & _
+                          html_escape(objStatus.selectSingleNode("retweeted_status/text").FirstChild.nodeValue)
+    End If
+    strTimeLine(i, 3) = html_escape(Format(ConvertCreateTime(objStatus.selectSingleNode("created_at").FirstChild.nodeValue), "yy-mm-dd hh:mm"))
     i = i + 1
   Next
   GetTimeLine = strTimeLine
