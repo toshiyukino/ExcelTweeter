@@ -128,13 +128,13 @@ Public Function TweetPost( _
         TweetPost = ""
         Exit Function
       End If
-      param("id") = CStr(strStatusID)
+      param("id") = strStatusID
   Else
     strReqURL = post_url
     param("status") = UrlEncode(Left(strPost, 140)) '140ï∂éö
     'ï‘êMÇÃèÍçáÇÕï‘êMå≥ÇhÇcÇì¸ÇÍÇÈ
     If Tweet_type = Reply_Tweet And strStatusID <> "" Then
-      param("in_reply_to_status_id") = CStr(strStatusID)
+      param("in_reply_to_status_id") = strStatusID
     End If
   End If
   strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
@@ -273,7 +273,7 @@ Public Function GetTimeLine _
   
   i = 0
   For Each objStatus In Statuses.childNodes
-    strTimeLine(i, 0) = objStatus.selectSingleNode("id").FirstChild.nodeValue
+    strTimeLine(i, 0) = CStr(objStatus.selectSingleNode("id").FirstChild.nodeValue)
     strTimeLine(i, 1) = html_escape(objStatus.selectSingleNode("user/screen_name").FirstChild.nodeValue)
     If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
       strTimeLine(i, 2) = html_escape(objStatus.selectSingleNode("text").FirstChild.nodeValue)
