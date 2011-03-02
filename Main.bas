@@ -2,49 +2,49 @@ Attribute VB_Name = "Main"
 Option Explicit
 
 Private Const tl_count = 50
-'ƒVƒ‡[ƒgƒJƒbƒgƒL[
-Private Const sck_post = "^t"   'ƒcƒC[ƒg           ctrl + t
-Private Const sck_quot = "^q"   '‹Œƒ^ƒCƒvƒŠƒc[ƒg@ ctrl + q
-Private Const sck_reply = "^r"  '•ÔM               ctrl + r
-Private Const sck_rtwt = "^+r"  'Œö®ƒŠƒcƒC[ƒg     ctrl + alt + r
+'ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚­ãƒ¼
+Private Const sck_post = "^t"   'ãƒ„ã‚¤ãƒ¼ãƒˆ           ctrl + t
+Private Const sck_quot = "^q"   'æ—§ã‚¿ã‚¤ãƒ—ãƒªãƒ„ãƒ¼ãƒˆã€€ ctrl + q
+Private Const sck_reply = "^r"  'è¿”ä¿¡               ctrl + r
+Private Const sck_rtwt = "^+r"  'å…¬å¼ãƒªãƒ„ã‚¤ãƒ¼ãƒˆ     ctrl + alt + r
 
-'ƒuƒbƒNƒI[ƒvƒ“‚ÉÀs
+'ãƒ–ãƒƒã‚¯ã‚ªãƒ¼ãƒ—ãƒ³æ™‚ã«å®Ÿè¡Œ
 Private Sub Auto_Open()
   On Error Resume Next
-  'ƒVƒ‡[ƒgƒJƒbƒgƒL[
+  'ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚­ãƒ¼
   With Application
-    '‘SƒuƒbƒN‚Ç‚±‚Å‚à
-    .OnKey sck_post, "DoPost" 'ƒ|ƒXƒg‚Í‘S‚Ä‚ÌƒuƒbƒN‚É—LŒø‚É‚·‚éB
+    'å…¨ãƒ–ãƒƒã‚¯ã©ã“ã§ã‚‚
+    .OnKey sck_post, "DoPost" 'ãƒã‚¹ãƒˆã¯å…¨ã¦ã®ãƒ–ãƒƒã‚¯æ™‚ã«æœ‰åŠ¹ã«ã™ã‚‹ã€‚
     
-    'ƒ^ƒCƒ€ƒ‰ƒCƒ“•\¦ƒV[ƒg‚ªƒAƒNƒeƒBƒu‚È‚Æ‚«‚ÉÀs
+    'ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³è¡¨ç¤ºã‚·ãƒ¼ãƒˆãŒã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªã¨ãã«å®Ÿè¡Œ
     Call SetShortcutKey
     .Worksheets(1).OnSheetActivate = "SetShortcutKey"
     
-    '”ñƒAƒNƒeƒBƒu
+    'éã‚¢ã‚¯ãƒ†ã‚£ãƒ–æ™‚
     .Worksheets(1).OnSheetDeactivate = "ResetShortcutKey"
   End With
 End Sub
 
-'ƒuƒbƒNƒNƒ[ƒY‚ÉÀs
+'ãƒ–ãƒƒã‚¯ã‚¯ãƒ­ãƒ¼ã‚ºæ™‚ã«å®Ÿè¡Œ
 Private Sub Auto_Close()
   On Error Resume Next
-  'ƒVƒ‡[ƒgƒJƒbƒgƒL[
+  'ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚­ãƒ¼
   With Application
     .OnKey sck_post
     Call ResetShortcutKey
   End With
 End Sub
 
-'ƒVƒ‡[ƒgƒJƒbƒgƒL[’Ç‰Á
+'ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚­ãƒ¼è¿½åŠ 
 Private Sub SetShortcutKey()
   With Application
-    .OnKey sck_quot, "DoQuottweet"  'ƒŠƒc[ƒg(‹Œƒ^ƒCƒv)
+    .OnKey sck_quot, "DoQuottweet"  'ãƒªãƒ„ãƒ¼ãƒˆ(æ—§ã‚¿ã‚¤ãƒ—)
     .OnKey sck_rtwt, "DoRetweet"
     .OnKey sck_reply, "DoReply"
   End With
 End Sub
 
-'ƒVƒ‡[ƒgƒJƒbƒgƒL[íœ
+'ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚­ãƒ¼å‰Šé™¤
 Private Sub ResetShortcutKey()
   With Application
     .OnKey sck_quot
@@ -53,14 +53,14 @@ Private Sub ResetShortcutKey()
   End With
 End Sub
 
-'“Še
+'æŠ•ç¨¿
 Sub DoPost()
-Attribute DoPost.VB_Description = "‚Â‚Ô‚â‚«‚ğƒ|ƒXƒg‚µ‚Ü‚·"
+Attribute DoPost.VB_Description = "ã¤ã¶ã‚„ãã‚’ãƒã‚¹ãƒˆã—ã¾ã™"
 Attribute DoPost.VB_ProcData.VB_Invoke_Func = " \n14"
   Dim msg As String
   msg = InputBox("what are you doing?")
   If msg <> "" And Len(msg) < 141 Then
-    Application.StatusBar = "ƒcƒC[ƒg‚ğ‘—M’†..."
+    Application.StatusBar = "ãƒ„ã‚¤ãƒ¼ãƒˆã‚’é€ä¿¡ä¸­..."
     If MsgBox("tweet ok?", vbYesNo) = vbYes Then
       Debug.Print TweetPost(msg)
     End If
@@ -68,9 +68,9 @@ Attribute DoPost.VB_ProcData.VB_Invoke_Func = " \n14"
   End If
 End Sub
 
-'‹Œƒ^ƒCƒvƒŠƒcƒC[ƒg
+'æ—§ã‚¿ã‚¤ãƒ—ãƒªãƒ„ã‚¤ãƒ¼ãƒˆ
 Sub DoQuottweet()
-Attribute DoQuottweet.VB_Description = "‹Œƒ^ƒCƒv‚ÌƒŠƒc[ƒg‚ğ‚µ‚Ü‚·B"
+Attribute DoQuottweet.VB_Description = "æ—§ã‚¿ã‚¤ãƒ—ã®ãƒªãƒ„ãƒ¼ãƒˆã‚’ã—ã¾ã™ã€‚"
 Attribute DoQuottweet.VB_ProcData.VB_Invoke_Func = " \n14"
   Dim regEx As Object 'VBScript_RegExp_55.RegExp
   Dim Match As Object ' VBScript_RegExp_55.Match
@@ -88,7 +88,7 @@ Attribute DoQuottweet.VB_ProcData.VB_Invoke_Func = " \n14"
     Set Matches = regEx.Execute(ActiveCell.Value)
     
     If Matches Is Nothing Then
-      MsgBox "ƒcƒC[ƒg‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "è“®‚Ås‚¤‚©‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢", vbCritical
+      MsgBox "ãƒ„ã‚¤ãƒ¼ãƒˆãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "æ‰‹å‹•ã§è¡Œã†ã‹ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„", vbCritical
       Exit Sub
     End If
     
@@ -97,7 +97,7 @@ Attribute DoQuottweet.VB_ProcData.VB_Invoke_Func = " \n14"
     msg = InputBox("what are you doing?", , msg)
     If msg <> "" And Len(msg) < 141 Then
       If MsgBox("tweet ok?", vbYesNo) = vbYes Then
-        Application.StatusBar = "ƒcƒC[ƒg‚ğ‘—M’†..."
+        Application.StatusBar = "ãƒ„ã‚¤ãƒ¼ãƒˆã‚’é€ä¿¡ä¸­..."
         Debug.Print TweetPost(msg)
         Application.StatusBar = False
       End If
@@ -105,9 +105,9 @@ Attribute DoQuottweet.VB_ProcData.VB_Invoke_Func = " \n14"
   End If
 End Sub
 
-'Œö®ƒŠƒcƒC[ƒg
+'å…¬å¼ãƒªãƒ„ã‚¤ãƒ¼ãƒˆ
 Sub DoRetweet()
-Attribute DoRetweet.VB_Description = "Œö®ƒŠƒcƒC[ƒg‚ğ‚µ‚Ü‚·B"
+Attribute DoRetweet.VB_Description = "å…¬å¼ãƒªãƒ„ã‚¤ãƒ¼ãƒˆã‚’ã—ã¾ã™ã€‚"
 Attribute DoRetweet.VB_ProcData.VB_Invoke_Func = " \n14"
   Dim regEx As Object 'VBScript_RegExp_55.RegExp
   Dim Match As Object ' VBScript_RegExp_55.Match
@@ -124,16 +124,16 @@ Attribute DoRetweet.VB_ProcData.VB_Invoke_Func = " \n14"
     Set Matches = regEx.Execute(ActiveCell.Value)
     
     If Matches Is Nothing Then
-      MsgBox "ƒcƒC[ƒg‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "Šm”F‚µ‚Ä‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢", vbCritical
+      MsgBox "ãƒ„ã‚¤ãƒ¼ãƒˆãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "ç¢ºèªã—ã¦ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„", vbCritical
       Exit Sub
     End If
     
     msg = Trim(Matches(0).SubMatches(0))
-    If MsgBox("ˆÈ‰º‚Ì“à—e‚ğƒŠƒc[ƒg‚µ‚Ü‚·B" & vbCrLf & vbCrLf & _
-       "u" & msg & "v" & vbCrLf & vbCrLf & _
-       "‚æ‚ë‚µ‚¢‚Å‚·‚©H", vbYesNo + vbDefaultButton2) = vbYes Then
+    If MsgBox("ä»¥ä¸‹ã®å†…å®¹ã‚’ãƒªãƒ„ãƒ¼ãƒˆã—ã¾ã™ã€‚" & vbCrLf & vbCrLf & _
+       "ã€Œ" & msg & "ã€" & vbCrLf & vbCrLf & _
+       "ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ", vbYesNo + vbDefaultButton2) = vbYes Then
       If MsgBox("tweet ok?", vbYesNo) = vbYes Then
-        Application.StatusBar = "ƒcƒC[ƒg‚ğ‘—M’†..."
+        Application.StatusBar = "ãƒ„ã‚¤ãƒ¼ãƒˆã‚’é€ä¿¡ä¸­..."
         Debug.Print TweetPost(msg, Re_Tweet, ActiveSheet.Cells(ActiveCell.Row, 1).Value)
         Application.StatusBar = False
       End If
@@ -141,9 +141,9 @@ Attribute DoRetweet.VB_ProcData.VB_Invoke_Func = " \n14"
   End If
 End Sub
 
-'•ÔM
+'è¿”ä¿¡
 Sub DoReply()
-Attribute DoReply.VB_Description = "•ÔM‚µ‚Ü‚·B"
+Attribute DoReply.VB_Description = "è¿”ä¿¡ã—ã¾ã™ã€‚"
 Attribute DoReply.VB_ProcData.VB_Invoke_Func = " \n14"
   Dim regEx As Object 'VBScript_RegExp_55.RegExp
   Dim Match As Object ' VBScript_RegExp_55.Match
@@ -160,7 +160,7 @@ Attribute DoReply.VB_ProcData.VB_Invoke_Func = " \n14"
     Set Matches = regEx.Execute(ActiveCell.Value)
     
     If Matches Is Nothing Then
-      MsgBox "ƒcƒC[ƒg‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "Šm”F‚µ‚Ä‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢", vbCritical
+      MsgBox "ãƒ„ã‚¤ãƒ¼ãƒˆãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "ç¢ºèªã—ã¦ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„", vbCritical
       Exit Sub
     End If
     
@@ -168,7 +168,7 @@ Attribute DoReply.VB_ProcData.VB_Invoke_Func = " \n14"
     msg = InputBox("what are you doing?", , "@" & Trim(Matches(0).SubMatches(0)) & " ")
     If msg <> "" And Len(msg) < 141 Then
       If MsgBox("tweet ok?", vbYesNo) = vbYes Then
-        Application.StatusBar = "ƒcƒC[ƒg‚ğ‘—M’†..."
+        Application.StatusBar = "ãƒ„ã‚¤ãƒ¼ãƒˆã‚’é€ä¿¡ä¸­..."
         Debug.Print TweetPost(msg, Reply_Tweet, ActiveSheet.Cells(ActiveCell.Row, 1).Value)
         Application.StatusBar = False
       End If
@@ -176,34 +176,34 @@ Attribute DoReply.VB_ProcData.VB_Invoke_Func = " \n14"
   End If
 End Sub
 
-'ƒz[ƒ€ƒ^ƒCƒ€ƒ‰ƒCƒ“
+'ãƒ›ãƒ¼ãƒ ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³
 Sub TL_Home()
-Attribute TL_Home.VB_Description = "ƒ^ƒCƒ€ƒ‰ƒCƒ“‚ğ•\¦"
+Attribute TL_Home.VB_Description = "ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã‚’è¡¨ç¤º"
 Attribute TL_Home.VB_ProcData.VB_Invoke_Func = " \n14"
   PrintTimeLine home_timeline
 End Sub
 
-'©•ª‚Ì–¼‘O‚ğŠÜ‚Şƒ^ƒCƒ€ƒ‰ƒCƒ“
+'è‡ªåˆ†ã®åå‰ã‚’å«ã‚€ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³
 Sub TL_Reply()
-Attribute TL_Reply.VB_Description = "©•ª‚Ì–¼‘O‚ğŠÜ‚Şƒ^ƒCƒ€ƒ‰ƒCƒ“‚ğ•\¦"
+Attribute TL_Reply.VB_Description = "è‡ªåˆ†ã®åå‰ã‚’å«ã‚€ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã‚’è¡¨ç¤º"
 Attribute TL_Reply.VB_ProcData.VB_Invoke_Func = " \n14"
   PrintTimeLine mentions
 End Sub
 
-'Šeíƒ^ƒCƒ€ƒ‰ƒCƒ“ˆ—
+'å„ç¨®ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³å‡¦ç†
 Private Sub PrintTimeLine(tl_name As TimeLineName)
   Dim vntTimeLine As Variant
   Dim i As Long, j As Long
   Dim strTemp As String
   
-  'ƒV[ƒg‰Šú‰»
+  'ã‚·ãƒ¼ãƒˆåˆæœŸåŒ–
   With ThisWorkbook.Worksheets(1)
     .Cells.ClearContents
-    With .Columns(1) 'ƒXƒe[ƒ^ƒX‚‰‚„•\¦—p
+    With .Columns(1) 'ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ï½‰ï½„è¡¨ç¤ºç”¨
       '.WrapText = False
       .Hidden = True
     End With
-    With .Columns(2) 'ƒ^ƒCƒ€ƒ‰ƒCƒ“•\¦—p
+    With .Columns(2) 'ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³è¡¨ç¤ºç”¨
       .ColumnWidth = 100
       .VerticalAlignment = xlVAlignTop
       .WrapText = True
@@ -212,10 +212,10 @@ Private Sub PrintTimeLine(tl_name As TimeLineName)
     End With
   End With
   
-  'ŒvZ‚ğ~‚ß‚é
+  'è¨ˆç®—ã‚’æ­¢ã‚ã‚‹
   Application.Calculation = xlCalculationManual
   Application.ScreenUpdating = False
-  Application.StatusBar = "ƒ^ƒCƒ€ƒ‰ƒCƒ“‚ğæ“¾’†..."
+  Application.StatusBar = "ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã‚’å–å¾—ä¸­..."
   
   vntTimeLine = GetTimeLine(tl_count, tl_name)
   If IsArray(vntTimeLine) Then
@@ -223,10 +223,10 @@ Private Sub PrintTimeLine(tl_name As TimeLineName)
     For i = 0 To UBound(vntTimeLine)
       With ThisWorkbook.Worksheets(1)
         If Trim(vntTimeLine(i, 1)) <> "" Then
-          .Cells(j, 1).Value = "'" & vntTimeLine(i, 0)  'Œ…‚ª‘å‚«‚¢‚Ì‚Å•¶š‚Æ‚µ‚Ä‹L“ü
+          .Cells(j, 1).Value = "'" & vntTimeLine(i, 0)  'æ¡ãŒå¤§ãã„ã®ã§æ–‡å­—ã¨ã—ã¦è¨˜å…¥
           strTemp = vntTimeLine(i, 1) & ": " & vntTimeLine(i, 2) & " " & vntTimeLine(i, 3)
           .Cells(j, 2).Value = strTemp
-          Syntax .Cells(j, 2) '‚½‚Ô‚ñ’x‚­‚È‚é
+          Syntax .Cells(j, 2) 'ãŸã¶ã‚“é…ããªã‚‹
         End If
       End With
       j = j + 1
@@ -238,7 +238,7 @@ Private Sub PrintTimeLine(tl_name As TimeLineName)
   Application.Calculation = xlCalculationAutomatic
 End Sub
 
-'Œ©‚â‚·‚­
+'è¦‹ã‚„ã™ã
 Sub Syntax(Target As Range)
   Dim regEx As Object 'VBScript_RegExp_55.RegExp
   Dim Match As Object ' VBScript_RegExp_55.Match
@@ -287,7 +287,7 @@ Sub Syntax(Target As Range)
     End With
   Next
   
-  'hashƒ^ƒO
+  'hashã‚¿ã‚°
   regEx.Pattern = "#\w+"
   Set Matches = regEx.Execute(Target.Value)
   For Each Match In Matches

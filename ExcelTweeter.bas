@@ -7,7 +7,7 @@ Option Explicit
 '-----------------------------------
 Private Const UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1) "
 '-----------------------------------
-'PROXY İ’è(g‚¤ê‡‚Íƒ†[ƒU–¼FƒpƒXƒ[ƒh‚Åw’è)
+'PROXY è¨­å®š(ä½¿ã†å ´åˆã¯ãƒ¦ãƒ¼ã‚¶åï¼šãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã§æŒ‡å®š)
 '-----------------------------------
 Private Const proxy_user = ""
 Private Const proxy_server = ""
@@ -35,7 +35,7 @@ End Enum
 Public Enum TweetType
   Default_Tweet = 1
   Reply_Tweet = 2
-  Re_Tweet = 3 'Œö®ƒŠƒc[ƒg
+  Re_Tweet = 3 'å…¬å¼ãƒªãƒ„ãƒ¼ãƒˆ
 End Enum
 '-----------------------------------
 'ConsumerKey
@@ -43,7 +43,7 @@ End Enum
 Private Const Consumer_key = "qniWjXPORoaN20Lp6akmg"
 Private Const Consumer_secret = "686W6DEJk5kIKmxA3zPpNLkIOmqeim4OJ6zFQOxQ"
 '-----------------------------------
-'API éŒ¾
+'API å®£è¨€
 '-----------------------------------
 Private Declare Function CryptAcquireContext Lib "advapi32.dll" Alias "CryptAcquireContextA" _
   (ByRef phProv As Long, ByVal pszContainer As String, _
@@ -71,7 +71,7 @@ Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" _
     ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
 Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
-'ƒAƒNƒZƒXƒg[ƒNƒ“‚ğ•Û‘¶‚µ‚Ä‚¢‚éƒtƒ@ƒCƒ‹‚ğíœ
+'ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ä¿å­˜ã—ã¦ã„ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‰Šé™¤
 Public Function DelTokenFile() As Boolean
   Dim intFileNo As Integer
   Dim strFileName As String
@@ -110,7 +110,7 @@ Public Function TweetPost( _
 
   If Not IsArray(GetToken) Then
     If isOAuth = False Then
-      MsgBox "ƒAƒNƒZƒXƒg[ƒNƒ“‚ªæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½", vbCritical
+      MsgBox "ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ãŒå–å¾—ã§ãã¾ã›ã‚“ã§ã—ãŸ", vbCritical
       TweetPost = ""
       Exit Function
     End If
@@ -121,18 +121,19 @@ Public Function TweetPost( _
   
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
+  param("source") = "ExcelTweet"
   If Tweet_type = Re_Tweet Then
       strReqURL = retw_url & strStatusID & ".xml"
       If strStatusID = "" Then
-        MsgBox "ƒŠƒc[ƒgŒ³‚ÌƒXƒe[ƒ^ƒX‚h‚c‚ªæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
+        MsgBox "ãƒªãƒ„ãƒ¼ãƒˆå…ƒã®ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ï¼©ï¼¤ãŒå–å¾—ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚", vbCritical
         TweetPost = ""
         Exit Function
       End If
       param("id") = strStatusID
   Else
     strReqURL = post_url
-    param("status") = UrlEncode(Left(strPost, 140)) '140•¶š
-    '•ÔM‚Ìê‡‚Í•ÔMŒ³‚h‚c‚ğ“ü‚ê‚é
+    param("status") = UrlEncode(Left(strPost, 140)) '140æ–‡å­—
+    'è¿”ä¿¡ã®å ´åˆã¯è¿”ä¿¡å…ƒï¼©ï¼¤ã‚’å…¥ã‚Œã‚‹
     If Tweet_type = Reply_Tweet And strStatusID <> "" Then
       param("in_reply_to_status_id") = strStatusID
     End If
@@ -142,13 +143,13 @@ Public Function TweetPost( _
   
   Set xhr = CreateRequest("POST", strReqURL)
   If xhr Is Nothing Then
-    MsgBox "ƒŠƒNƒGƒXƒgƒIƒuƒWƒFƒNƒg‚ªì¬‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½", vbCritical
+    MsgBox "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãŒä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸ", vbCritical
     TweetPost = 0
     Exit Function
   End If
   xhr.send UrlParse(param)
   
-  '“Ç‚İ‚İ‚ªŠ®—¹‚·‚é‚Ü‚Åƒ‹[ƒv
+  'èª­ã¿è¾¼ã¿ãŒå®Œäº†ã™ã‚‹ã¾ã§ãƒ«ãƒ¼ãƒ—
   'Do Until xhr.readyState = 4
   '  DoEvents
   '  Sleep 100
@@ -173,9 +174,9 @@ End Function
 '(x,1):screen name
 '(x,2):tweet text
 '(x,3):create time
-'ˆø” timeline_count:æ“¾‚·‚éƒ^ƒCƒ€ƒ‰ƒCƒ“‚Ì”
-'     timeline_name:ƒ^ƒCƒ€ƒ‰ƒCƒ“‚Ìí—Ş
-'–ß‚è’l‚ª”z—ñ‚©Šm”F‚µ‚Äg‚¤
+'å¼•æ•° timeline_count:å–å¾—ã™ã‚‹ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã®æ•°
+'     timeline_name:ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã®ç¨®é¡
+'æˆ»ã‚Šå€¤ãŒé…åˆ—ã‹ç¢ºèªã—ã¦ä½¿ã†
 Public Function GetTimeLine _
   (Optional timeline_count As Long = 20, _
   Optional timeline_name As TimeLineName = home_timeline _
@@ -198,7 +199,7 @@ Public Function GetTimeLine _
   
   If Not IsArray(GetToken) Then
     If isOAuth = False Then
-      MsgBox "ƒAƒNƒZƒXƒg[ƒNƒ“‚ªæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½", vbCritical
+      MsgBox "ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ãŒå–å¾—ã§ãã¾ã›ã‚“ã§ã—ãŸ", vbCritical
       GetTimeLine = 0
       Exit Function
     End If
@@ -222,7 +223,7 @@ Public Function GetTimeLine _
     Case retweets_of_me
       strTL_url = timeline_url & "retweets_of_me.xml"
     Case Else
-      MsgBox "ƒ^ƒCƒ€ƒ‰ƒCƒ“‚Ìí—Ş‚ğ“Á’è‚Å‚«‚Ü‚¹‚ñ", vbCritical
+      MsgBox "ã‚¿ã‚¤ãƒ ãƒ©ã‚¤ãƒ³ã®ç¨®é¡ã‚’ç‰¹å®šã§ãã¾ã›ã‚“", vbCritical
       GetTimeLine = 0
       Exit Function
   End Select
@@ -238,13 +239,13 @@ Public Function GetTimeLine _
   
   Set xhr = CreateRequest("GET", strTL_url & "?" & UrlParse(param))
   If xhr Is Nothing Then
-    MsgBox "ƒŠƒNƒGƒXƒgƒIƒuƒWƒFƒNƒg‚ªì¬‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½", vbCritical
+    MsgBox "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãŒä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸ", vbCritical
     GetTimeLine = 0
     Exit Function
   End If
   xhr.send
   
-  '“Ç‚İ‚İ‚ªŠ®—¹‚·‚é‚Ü‚Åƒ‹[ƒv
+  'èª­ã¿è¾¼ã¿ãŒå®Œäº†ã™ã‚‹ã¾ã§ãƒ«ãƒ¼ãƒ—
   'Do Until xhr.readyState = 4
   '  DoEvents
   '  Sleep 100
@@ -278,7 +279,7 @@ Public Function GetTimeLine _
     If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
       strTimeLine(i, 2) = html_escape(objStatus.selectSingleNode("text").FirstChild.nodeValue)
     Else
-      'Œö®ƒŠƒc[ƒg‘Î‰
+      'å…¬å¼ãƒªãƒ„ãƒ¼ãƒˆå¯¾å¿œ
       strTimeLine(i, 2) = objStatus.selectSingleNode("retweeted_status/user/screen_name").FirstChild.nodeValue
       strTimeLine(i, 2) = "RT @" & strTimeLine(i, 2) & ": "
       strTimeLine(i, 2) = html_escape(strTimeLine(i, 2)) & _
@@ -293,7 +294,7 @@ ErrorHandler:
   GetTimeLine = 0
 End Function
 
-'ƒRƒ“ƒVƒ…[ƒ}ƒL[‚ğg‚Á‚ÄƒAƒNƒZƒXƒg[ƒNƒ“‚ğæ“¾‚µ‚Äƒtƒ@ƒCƒ‹‚É•Û‘¶‚·‚éB
+'ã‚³ãƒ³ã‚·ãƒ¥ãƒ¼ãƒã‚­ãƒ¼ã‚’ä½¿ã£ã¦ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã‚’å–å¾—ã—ã¦ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã™ã‚‹ã€‚
 Private Function isOAuth() As Boolean
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Scripting.Dictionary
@@ -312,42 +313,42 @@ Private Function isOAuth() As Boolean
 
   Set xhr = CreateRequest("GET", reqt_url & "?" & UrlParse(param))
   If xhr Is Nothing Then
-    MsgBox "ƒŠƒNƒGƒXƒgƒIƒuƒWƒFƒNƒg‚ªì¬‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½", vbCritical
+    MsgBox "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãŒä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸ", vbCritical
     isOAuth = False
     Exit Function
   End If
   xhr.send
   
-  'æ“¾¸”s
+  'å–å¾—å¤±æ•—
   If xhr.Status <> 200 Then
     isOAuth = False
     Exit Function
   End If
   
-  'ƒŒƒXƒ|ƒ“ƒXƒeƒLƒXƒg
+  'ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãƒ†ã‚­ã‚¹ãƒˆ
   res = xhr.responseText
   
-  'authƒg[ƒNƒ“iˆê“I‚Ég‚¤j
+  'authãƒˆãƒ¼ã‚¯ãƒ³ï¼ˆä¸€æ™‚çš„ã«ä½¿ã†ï¼‰
   otoken = GetOAuthToken(res)
   otoken_secret = GetOAuthToken_secret(res)
 
-  'ƒŒƒXƒ|ƒ“ƒX‚Éƒg[ƒNƒ“‚ªŠÜ‚Ü‚ê‚Ä‚¢‚È‚¢ê‡
+  'ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã«ãƒˆãƒ¼ã‚¯ãƒ³ãŒå«ã¾ã‚Œã¦ã„ãªã„å ´åˆ
   If otoken = "" Or otoken_secret = "" Then
     isOAuth = False
     Exit Function
   End If
 
-  'PINæ“¾‚Ìˆ×ƒuƒ‰ƒEƒU‚ğ‹N“®iˆø”‚Éauthƒg[ƒNƒ“‚ğw’èj
+  'PINå–å¾—ã®ç‚ºãƒ–ãƒ©ã‚¦ã‚¶ã‚’èµ·å‹•ï¼ˆå¼•æ•°ã«authãƒˆãƒ¼ã‚¯ãƒ³ã‚’æŒ‡å®šï¼‰
   Call ShellExecute(0, "open", auth_url & "?oauth_token=" & otoken, vbNullString, vbNullString, 3)
-  strPin = InputBox("pin‚ğ“ü—Í")
+  strPin = InputBox("pinã‚’å…¥åŠ›")
   If strPin = "" Then
     isOAuth = False
     Exit Function
   End If
 
   param.RemoveAll
-  param("oauth_verifier") = strPin '¡‰ñ‚¾‚¯iPINƒR[ƒhj
-  param("oauth_token") = otoken '¡‰ñ‚¾‚¯iauthƒg[ƒNƒ“j
+  param("oauth_verifier") = strPin 'ä»Šå›ã ã‘ï¼ˆPINã‚³ãƒ¼ãƒ‰ï¼‰
+  param("oauth_token") = otoken 'ä»Šå›ã ã‘ï¼ˆauthãƒˆãƒ¼ã‚¯ãƒ³ï¼‰
   strSig = MakeSignature("GET", acct_url, param, UrlEncode(Consumer_secret) & "&")
   param("oauth_signature") = UrlEncode(strSig)
 
@@ -359,28 +360,28 @@ Private Function isOAuth() As Boolean
     Exit Function
   End If
 
-  'ƒŒƒXƒ|ƒ“ƒXƒeƒLƒXƒg
+  'ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãƒ†ã‚­ã‚¹ãƒˆ
   res = xhr.responseText
   
   atoken = GetOAuthToken(res)
   atoken_secret = GetOAuthToken_secret(res)
 
-  'ƒŒƒXƒ|ƒ“ƒX‚Éƒg[ƒNƒ“‚ªŠÜ‚Ü‚ê‚Ä‚¢‚È‚¢ê‡
+  'ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã«ãƒˆãƒ¼ã‚¯ãƒ³ãŒå«ã¾ã‚Œã¦ã„ãªã„å ´åˆ
   If atoken = "" Or atoken_secret = "" Then
     isOAuth = False
     Exit Function
   End If
 
-  'ƒtƒ@ƒCƒ‹‚É•Û‘¶
+  'ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜
   If SaveToken(atoken, atoken_secret) Then
-    isOAuth = True  '•Û‘¶¬Œ÷
+    isOAuth = True  'ä¿å­˜æˆåŠŸ
   Else
-    isOAuth = False '•Û‘¶ƒGƒ‰[
+    isOAuth = False 'ä¿å­˜ã‚¨ãƒ©ãƒ¼
   End If
 End Function
 
 
-'xmlHttpRequestƒIƒuƒWƒFƒNƒg‚ğƒI[ƒvƒ“‚µ‚Ä•Ô‚·
+'xmlHttpRequestã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã—ã¦è¿”ã™
 Private Function CreateRequest(strMethod As String, strRequestParm As String) As Object 'MSXML2.ServerXMLHTTP60
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim ua As String
@@ -389,29 +390,29 @@ Private Function CreateRequest(strMethod As String, strRequestParm As String) As
   
   Set xhr = CreateObject("Msxml2.ServerXMLHTTP.6.0") 'MSXML2.ServerXMLHTTP60
 
-  'ƒvƒƒLƒVİ’è
+  'ãƒ—ãƒ­ã‚­ã‚·è¨­å®š
   If Not proxy_server = "" Then
     xhr.SetProxy 2, proxy_server  'SXH_PROXY_SET_PROXY=2
   End If
   
-  'UAİ’è
+  'UAè¨­å®š
   If UserAgent = "" Then
     ua = "Mozilla/4.0"
   Else
     ua = UserAgent
   End If
   
-  'ƒIƒuƒWƒFƒNƒg‚ğŠJ‚­
-  Call xhr.Open(strMethod, strRequestParm, False) '“¯Šúˆ—
+  'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’é–‹ã
+  Call xhr.Open(strMethod, strRequestParm, False) 'åŒæœŸå‡¦ç†
   
-  'ƒvƒƒLƒV”FØ
+  'ãƒ—ãƒ­ã‚­ã‚·èªè¨¼
   If Len(proxy_user) > 0 Then
     If InStr(1, proxy_user, ":") > 0 Then
       xhr.setProxyCredentials Split(proxy_user, ":")(0), Split(proxy_user, ":")(1)
     End If
   End If
   
-  'ƒŠƒNƒGƒXƒgƒwƒbƒ_[‚ÌƒZƒbƒg
+  'ãƒªã‚¯ã‚¨ã‚¹ãƒˆãƒ˜ãƒƒãƒ€ãƒ¼ã®ã‚»ãƒƒãƒˆ
   Call xhr.setRequestHeader("User-Agent", ua)
   Call xhr.setRequestHeader("Pragma", "no-cache")
   Call xhr.setRequestHeader("Cache-Control", "Private")
@@ -427,21 +428,21 @@ Private Function MakeSignature(strMethod As String, strUrl As String, ByRef Dict
   Dim buf() As Byte
   Dim strDigest As String
   Dim i As Long
-  Randomize '—”ƒWƒFƒlƒŒ[ƒ^‚ğ‰Šú‰»
+  Randomize 'ä¹±æ•°ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ã‚’åˆæœŸåŒ–
   DictionaryObject("oauth_consumer_key") = Consumer_key
   DictionaryObject("oauth_signature_method") = "HMAC-SHA1"
   DictionaryObject("oauth_version") = "1.0"
   DictionaryObject("oauth_timestamp") = CStr(DateDiff("s", #1/1/1970#, Now()))
-  DictionaryObject("oauth_nonce") = CStr(Int((100000000000# - 10000000 + 1) * Rnd + 10000000)) '“K“–‚ÉˆêˆÓ‚È’l
+  DictionaryObject("oauth_nonce") = CStr(Int((100000000000# - 10000000 + 1) * Rnd + 10000000)) 'é©å½“ã«ä¸€æ„ãªå€¤
   
   strReqData = strMethod & "&" & UrlEncode(strUrl) & "&" & UrlEncode(UrlParse(DictionaryObject))
   strDigest = hmac(strHmacKey, strReqData)
   buf = StrToBynary(strDigest)
-  MakeSignature = Trim(EncodeBase64(buf)) & vbLf
+  MakeSignature = Trim(EncodeBase64(buf)) '& vbLf
   
 End Function
 
-'wsh‹@”\‚ğg‚¤(JScript)
+'wshæ©Ÿèƒ½ã‚’ä½¿ã†(JScript)
 Private Function UrlEncode(strTarget As String) As String
   Dim obj As Object
   If Len(strTarget) = 0 Then Exit Function
@@ -450,13 +451,13 @@ Private Function UrlEncode(strTarget As String) As String
   UrlEncode = obj.CodeObject.encodeURIComponent(strTarget)
 End Function
 
-'win32API(‹°‚ç‚­win2000‚©‚ç“®‚­)
+'win32API(æã‚‰ãwin2000ã‹ã‚‰å‹•ã)
 Private Function EncodeBase64(bytTarget() As Byte) As String
   Dim strBase64 As String
   Dim lngBase64_Len As Long
   Dim ret As Long
   Const CRYPT_STRING_BASE64 As Long = 1
-  '•K—v‚È—e—Ê‚ğŒvZ
+  'å¿…è¦ãªå®¹é‡ã‚’è¨ˆç®—
   ret = CryptBinaryToString(bytTarget(0), UBound(bytTarget) + 1, CRYPT_STRING_BASE64, vbNullString, lngBase64_Len)
   If ret Then
       strBase64 = Space(lngBase64_Len)
@@ -465,7 +466,7 @@ Private Function EncodeBase64(bytTarget() As Byte) As String
   EncodeBase64 = Mid(strBase64, 1, lngBase64_Len - 3)
 End Function
 
-'key‚ğƒ\[ƒg‚µ‚Ä”z—ñ‚ğ•Ô‚·
+'keyã‚’ã‚½ãƒ¼ãƒˆã—ã¦é…åˆ—ã‚’è¿”ã™
 Private Function KeySort(dictionary_object As Object) As Variant
   Dim i As Long, j As Long
   Dim varTemp As Variant
@@ -478,10 +479,10 @@ Private Function KeySort(dictionary_object As Object) As Variant
   
   varData = dictionary_object.Keys
   
-  '‘“–‚è‚Åƒ\[ƒgiƒoƒuƒ‹ƒ\[ƒgj
+  'ç·å½“ã‚Šã§ã‚½ãƒ¼ãƒˆï¼ˆãƒãƒ–ãƒ«ã‚½ãƒ¼ãƒˆï¼‰
   For i = 0 To dictionary_object.Count - 1
     For j = i + 1 To dictionary_object.Count - 1
-      '”äŠr
+      'æ¯”è¼ƒ
       If varData(i) > varData(j) Then
         varTemp = varData(i)
         varData(i) = varData(j)
@@ -493,7 +494,7 @@ Private Function KeySort(dictionary_object As Object) As Variant
   KeySort = varData
 End Function
 
-'dictionaryƒIƒuƒWƒFƒNƒg‚ÌƒL[‚ğƒ\[ƒg‚µ‚Äkey1=value1&key2=valu2...‚Ì•¶š—ñ‚ğ•Ô‚·
+'dictionaryã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ã‚­ãƒ¼ã‚’ã‚½ãƒ¼ãƒˆã—ã¦key1=value1&key2=valu2...ã®æ–‡å­—åˆ—ã‚’è¿”ã™
 Private Function UrlParse(dictionary_object As Object) As String
   Dim strReqData As String
   Dim d As Variant
@@ -513,10 +514,10 @@ End Function
 
 Private Function MakeSHA1Hash(bytValue() As Byte) As String
   Dim ret As Long
-  Dim lngProv As Long 'ƒRƒ“ƒeƒiƒIƒuƒWƒFƒNƒg
-  Dim lngHash As Long 'ƒnƒbƒVƒ…ƒIƒuƒWƒFƒNƒg
-  Dim lngHashSize As Long 'ƒnƒbƒVƒ…ƒTƒCƒY
-  Dim bytBuff() As Byte 'ƒnƒbƒVƒ…‚ªŠi”[‚³‚ê‚éƒGƒŠƒA
+  Dim lngProv As Long 'ã‚³ãƒ³ãƒ†ãƒŠã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+  Dim lngHash As Long 'ãƒãƒƒã‚·ãƒ¥ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+  Dim lngHashSize As Long 'ãƒãƒƒã‚·ãƒ¥ã‚µã‚¤ã‚º
+  Dim bytBuff() As Byte 'ãƒãƒƒã‚·ãƒ¥ãŒæ ¼ç´ã•ã‚Œã‚‹ã‚¨ãƒªã‚¢
   Dim strHex As String
   Dim i As Long
   Const CRYPT_VERIFYCONTEXT As Long = &HF0000000
@@ -530,36 +531,36 @@ Private Function MakeSHA1Hash(bytValue() As Byte) As String
   Const CALG_SHA1 As Long = CALG_SHA
   Const PROV_RSA_FULL As Long = 1
   Const HP_HASHVAL As Long = 2
-  'SHA1ƒnƒbƒVƒ…
+  'SHA1ãƒãƒƒã‚·ãƒ¥
   Const lngHashType = CALG_SHA1
   
-  'ƒL[ƒRƒ“ƒeƒi‚Ìì¬
+  'ã‚­ãƒ¼ã‚³ãƒ³ãƒ†ãƒŠã®ä½œæˆ
   ret = CryptAcquireContext(lngProv, vbNullString, MS_DEF_PROV, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)
   If ret = False Then
     MakeSHA1Hash = ""
     Exit Function
   End If
   
-  'ƒnƒbƒVƒ…ƒIƒuƒWƒFƒNƒg‚Ìì¬
+  'ãƒãƒƒã‚·ãƒ¥ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ä½œæˆ
   ret = CryptCreateHash(lngProv, lngHashType, 0, 0, lngHash)
   If ret = False Then
     Call CryptReleaseContext(lngProv, 0)
     Exit Function
   End If
   
-  'ƒnƒbƒVƒ…ƒf[ƒ^‚ğì‚é
+  'ãƒãƒƒã‚·ãƒ¥ãƒ‡ãƒ¼ã‚¿ã‚’ä½œã‚‹
   ret = CryptHashData(lngHash, bytValue(0), UBound(bytValue) + 1, 0)
   If ret = False Then
     GoTo ExitHandler
   End If
   
-  '•K—v‚ÈƒTƒCƒY‚ğæ“¾
+  'å¿…è¦ãªã‚µã‚¤ã‚ºã‚’å–å¾—
   ret = CryptGetHashParam(lngHash, HP_HASHVAL, ByVal 0, lngHashSize, 0)
   If ret = False Then
     GoTo ExitHandler
   End If
   
-  'ƒnƒbƒVƒ…‚ğæ‚èo‚·
+  'ãƒãƒƒã‚·ãƒ¥ã‚’å–ã‚Šå‡ºã™
   ReDim bytBuff(lngHashSize)
   For i = 0 To UBound(bytBuff)
     bytBuff(i) = 0
@@ -569,7 +570,7 @@ Private Function MakeSHA1Hash(bytValue() As Byte) As String
     GoTo ExitHandler
   End If
   
-  'HEX•¶š—ñ‚Ö
+  'HEXæ–‡å­—åˆ—ã¸
   For i = 0 To UBound(bytBuff) - 1
     strHex = strHex & Right("0" & LCase(Hex(bytBuff(i))), 2)
   Next
@@ -581,7 +582,7 @@ ExitHandler:
 
 End Function
 
-'ˆÃ†‰»
+'æš—å·åŒ–
 Private Function hmac(ByVal key As String, ByVal data As String) As String
   Dim i As Integer
   Dim hash As String
@@ -627,7 +628,7 @@ Private Function hmac(ByVal key As String, ByVal data As String) As String
   hmac = hash
 End Function
 
-'ƒoƒCƒg•¶š—ñ‚©‚çƒoƒCƒg”z—ñ‚ğ•Ô‚·
+'ãƒã‚¤ãƒˆæ–‡å­—åˆ—ã‹ã‚‰ãƒã‚¤ãƒˆé…åˆ—ã‚’è¿”ã™
 Private Function StrToBynary(strHexString As String) As Byte()
   Dim buf() As Byte
   Dim i As Long
@@ -639,12 +640,12 @@ Private Function StrToBynary(strHexString As String) As Byte()
   StrToBynary = buf
 End Function
 
-'TwitterAPI‚Ìì¬“ú‚©‚ç“ú•tŒ^‚Ì•Ï”‚ğ•Ô‚·
+'TwitterAPIã®ä½œæˆæ—¥ã‹ã‚‰æ—¥ä»˜å‹ã®å¤‰æ•°ã‚’è¿”ã™
 Private Function ConvertCreateTime(strCreated_at As String) As Date
   ConvertCreateTime = DateValue(Mid(strCreated_at, 5, 6) & Right(strCreated_at, 5)) + TimeValue(Mid(strCreated_at, 11, 9)) + TimeValue("09:00")
 End Function
 
-'TwitterAPI‚ÌƒŒƒXƒ|ƒ“ƒX‚©‚çToken‚ğ”²‚«o‚·
+'TwitterAPIã®ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‹ã‚‰Tokenã‚’æŠœãå‡ºã™
 Private Function GetOAuthToken(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
@@ -658,7 +659,7 @@ Private Function GetOAuthToken(strTarget As String) As String
   GetOAuthToken = ""
 End Function
 
-'TwitterAPI‚ÌƒŒƒXƒ|ƒ“ƒX‚©‚çsecret‚ğ”²‚«o‚·
+'TwitterAPIã®ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‹ã‚‰secretã‚’æŠœãå‡ºã™
 Private Function GetOAuthToken_secret(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
@@ -672,7 +673,7 @@ Private Function GetOAuthToken_secret(strTarget As String) As String
   GetOAuthToken_secret = ""
 End Function
 
-'HTMLƒGƒXƒP[ƒv
+'HTMLã‚¨ã‚¹ã‚±ãƒ¼ãƒ—
 Private Function html_escape(strString As String) As String
   Dim strTemp As String
   strTemp = strString
@@ -680,11 +681,11 @@ Private Function html_escape(strString As String) As String
   strTemp = Replace(strTemp, "&lt;", "<")
   strTemp = Replace(strTemp, "&gt;", ">")
   strTemp = Replace(strTemp, "&quot;", """")
-  strTemp = Replace(strTemp, vbLf, "") '‚Â‚¢‚Å‚É‰üs‚àíœ
+  strTemp = Replace(strTemp, vbLf, "") 'ã¤ã„ã§ã«æ”¹è¡Œã‚‚å‰Šé™¤
   html_escape = strTemp
 End Function
 
-'ƒAƒNƒZƒXƒg[ƒNƒ“‚ğƒtƒ@ƒCƒ‹–¼‚ğƒtƒ‹ƒpƒX‚Å•Ô‚·
+'ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ãƒ•ã‚¡ã‚¤ãƒ«åã‚’ãƒ•ãƒ«ãƒ‘ã‚¹ã§è¿”ã™
 Private Function GetTokenFileName() As String
   Dim strFileName As String
   Dim i As Long
@@ -699,8 +700,8 @@ Private Function GetTokenFileName() As String
   GetTokenFileName = strFileName
 End Function
 
-'ƒAƒNƒZƒXƒg[ƒNƒ“‚ğ“Ç‚İo‚·B
-'–ß‚è’l‚ÍƒoƒŠƒAƒ“ƒg”z—ñ(access_token,access_token_secret)BƒGƒ‰[‚È‚çƒ[ƒ‚ğ•Ô‚·
+'ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã‚’èª­ã¿å‡ºã™ã€‚
+'æˆ»ã‚Šå€¤ã¯ãƒãƒªã‚¢ãƒ³ãƒˆé…åˆ—(access_token,access_token_secret)ã€‚ã‚¨ãƒ©ãƒ¼ãªã‚‰ã‚¼ãƒ­ã‚’è¿”ã™
 Private Function GetToken() As Variant
   Dim intFileNo As Integer
   Dim strFileName As String
@@ -728,7 +729,7 @@ ErrorHandler:
   GetToken = 0
 End Function
 
-'ƒAƒNƒZƒXƒg[ƒNƒ“‚ğ•Û‘¶‚·‚éBƒGƒ‰[‚È‚çFalse‚ğ•Ô‚·
+'ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ä¿å­˜ã™ã‚‹ã€‚ã‚¨ãƒ©ãƒ¼ãªã‚‰Falseã‚’è¿”ã™
 Private Function SaveToken(access_token As String, access_token_secret As String) As Boolean
   Dim intFileNo As Integer
   Dim strFileName As String
