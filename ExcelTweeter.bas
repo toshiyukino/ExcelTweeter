@@ -445,10 +445,15 @@ End Function
 'wsh機能を使う(JScript)
 Private Function UrlEncode(strTarget As String) As String
   Dim obj As Object
+  Dim s As String
   If Len(strTarget) = 0 Then Exit Function
   Set obj = CreateObject("ScriptControl")
   obj.Language = "JScript"
-  UrlEncode = obj.CodeObject.encodeURIComponent(strTarget)
+  s = obj.CodeObject.encodeURIComponent(strTarget)
+  '半角かっこはエンコードされないので、対策
+  s = Replace(s, "(", "%28")
+  s = Replace(s, ")", "%29")
+  UrlEncode = s
 End Function
 
 'win32API(恐らくwin2000から動く)

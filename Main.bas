@@ -165,7 +165,7 @@ Attribute DoReply.VB_ProcData.VB_Invoke_Func = " \n14"
     End If
     
     Application.SendKeys "{RIGHT}", False
-    msg = InputBox("what are you doing?", , "@" & Trim(Matches(0).SubMatches(0)) & " ")
+    msg = InputBox("Re: " & ActiveSheet.Cells(ActiveCell.Row, 2).Value, , "@" & Trim(Matches(0).SubMatches(0)) & " ")
     If msg <> "" And Len(msg) < 141 Then
       If MsgBox("tweet ok?", vbYesNo) = vbYes Then
         Application.StatusBar = "ツイートを送信中..."
