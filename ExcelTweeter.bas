@@ -33,15 +33,17 @@ Public Enum TimeLineName
   retweets_of_me = 8
 End Enum
 Public Enum TweetType
-  Default_Tweet = 1
-  Reply_Tweet = 2
-  Re_Tweet = 3 '公式リツート
+  Default_Tweet = 1 '普通のポスト
+  Reply_Tweet = 2   '返信
+  Re_Tweet = 3      '公式リツート
+  Rt_Tweet = 4      '非公式リツイート
+  Qt_Tweet = 5      '引用ツイート
 End Enum
 '-----------------------------------
 'ConsumerKey
 '-----------------------------------
-Private Const Consumer_key = "qniWjXPORoaN20Lp6akmg"
-Private Const Consumer_secret = "686W6DEJk5kIKmxA3zPpNLkIOmqeim4OJ6zFQOxQ"
+Private Const Consumer_key = "TJ0pecuWf8ctAExNQbKLQ"
+Private Const Consumer_secret = "oZkjqJCb0nIdwK3RmPe2lEcsw9QzK8Q0NQLolqDqMwY"
 '-----------------------------------
 'API 宣言
 '-----------------------------------
@@ -123,6 +125,7 @@ Public Function TweetPost( _
   param("oauth_token") = atoken
   param("source") = "ExcelTweet"
   If Tweet_type = Re_Tweet Then
+      '公式リツイート
       strReqURL = retw_url & strStatusID & ".xml"
       If strStatusID = "" Then
         MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
@@ -133,8 +136,8 @@ Public Function TweetPost( _
   Else
     strReqURL = post_url
     param("status") = UrlEncode(Left(strPost, 140)) '140文字
-    '返信の場合は返信元ＩＤを入れる
-    If Tweet_type = Reply_Tweet And strStatusID <> "" Then
+    '通常のポスト以外はは返信元ＩＤを入れる
+    If Tweet_type <> Default_Tweet And strStatusID <> "" Then
       param("in_reply_to_status_id") = strStatusID
     End If
   End If

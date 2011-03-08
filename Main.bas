@@ -98,7 +98,7 @@ Attribute DoQuottweet.VB_ProcData.VB_Invoke_Func = " \n14"
     If msg <> "" And Len(msg) < 141 Then
       If MsgBox("tweet ok?", vbYesNo) = vbYes Then
         Application.StatusBar = "ツイートを送信中..."
-        Debug.Print TweetPost(msg)
+        Debug.Print TweetPost(msg, Qt_Tweet, ActiveSheet.Cells(ActiveCell.Row, 1).Value)
         Application.StatusBar = False
       End If
     End If
