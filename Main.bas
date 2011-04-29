@@ -1,7 +1,7 @@
 Attribute VB_Name = "Main"
 Option Explicit
 
-Private Const tl_count = 50
+Private Const tl_count = 100
 'ショートカットキー
 Private Const sck_post = "^t"   'ツイート           ctrl + t
 Private Const sck_quot = "^q"   '旧タイプリツート　 ctrl + q

@@ -453,9 +453,10 @@ Private Function UrlEncode(strTarget As String) As String
   Set obj = CreateObject("ScriptControl")
   obj.Language = "JScript"
   s = obj.CodeObject.encodeURIComponent(strTarget)
-  '半角かっこはエンコードされないので、対策
-  s = Replace(s, "(", "%28")
-  s = Replace(s, ")", "%29")
+  'エンコードされないので文字の対策
+  s = Replace(s, "(", "%28")  '(
+  s = Replace(s, ")", "%29")  ')
+  s = Replace(s, "!", "%21")  '!
   UrlEncode = s
 End Function
 
