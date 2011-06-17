@@ -1,6 +1,44 @@
 Attribute VB_Name = "ExcelTweeter"
 Option Explicit
 
+'-----------------------------------
+'定数
+'-----------------------------------
+Public Enum TimeLineName
+  home_timeline = 1
+  friends_timeline = 2
+  user_timeline = 3
+  replies = 4
+  mentions = 5
+  retweeted_by_me = 6
+  retweeted_to_me = 7
+  retweets_of_me = 8
+  favorites_timeline = 20
+End Enum
+Public Enum TweetType
+  Default_Tweet = 1 '普通のポスト
+  Reply_Tweet = 2   '返信
+  Re_Tweet = 3      '公式リツート
+  Rt_Tweet = 4      '非公式リツイート
+  Qt_Tweet = 5      '引用ツイート
+  Dm_Post = 6       'ダイレクトメッセージ送信
+  Fv_Post = 7       'お気に入り登録
+End Enum
+Public Enum DelType
+  status_delete = 1 'ツイート削除
+  dm_delete = 2     'ダイレクトメッセージ削除
+  fv_delete = 3     'ダイレクトメッセージ削除
+End Enum
+
+'-----------------------------------
+'ユーザ定義型
+'-----------------------------------
+Public Type StatusUser
+  Id As String
+  Name As String
+  ScreenName As String
+  ProfileImageUrl As String
+End Type
 
 '-----------------------------------
 'UserAgent
@@ -18,27 +56,11 @@ Private Const reqt_url = "http://api.twitter.com/oauth/request_token"
 Private Const auth_url = "https://api.twitter.com/oauth/authorize"
 Private Const acct_url = "http://api.twitter.com/oauth/access_token"
 Private Const post_url = "https://api.twitter.com/1/statuses/update.xml"
-Private Const retw_url = "https://api.twitter.com/1/statuses/retweet/" ' & statusid & ".xml"
-'Private Const frtl_url = "https://api.twitter.com/1/statuses/friends_timeline.xml"
-'Private Const hmtl_url = "https://api.twitter.com/1/statuses/home_timeline.xml"
+Private Const retw_url = "https://api.twitter.com/1/statuses/retweet/" ' & "statusid.xml"
 Private Const timeline_url = "https://api.twitter.com/1/statuses/"
-Public Enum TimeLineName
-  home_timeline = 1
-  friends_timeline = 2
-  user_timeline = 3
-  replies = 4
-  mentions = 5
-  retweeted_by_me = 6
-  retweeted_to_me = 7
-  retweets_of_me = 8
-End Enum
-Public Enum TweetType
-  Default_Tweet = 1 '普通のポスト
-  Reply_Tweet = 2   '返信
-  Re_Tweet = 3      '公式リツート
-  Rt_Tweet = 4      '非公式リツイート
-  Qt_Tweet = 5      '引用ツイート
-End Enum
+Private Const twtshow_url = "https://api.twitter.com/1/statuses/show/" ' & "statusid.xml"
+Private Const fav_url = "https://api.twitter.com/1/favorites.xml"
+Private Const fav_add = "https://api.twitter.com/1/favorites/create/"  ' & "id.format"
 '-----------------------------------
 'ConsumerKey
 '-----------------------------------
@@ -53,7 +75,7 @@ Private Declare Function CryptAcquireContext Lib "advapi32.dll" Alias "CryptAcqu
 Private Declare Function CryptReleaseContext Lib "advapi32.dll" _
   (ByVal hProv As Long, ByVal dwFlags As Long) As Long
 Private Declare Function CryptCreateHash Lib "advapi32.dll" _
-  (ByVal hProv As Long, ByVal Algid As Long, ByVal hKey As Long, _
+  (ByVal hProv As Long, ByVal algid As Long, ByVal hKey As Long, _
   ByVal dwFlags As Long, ByRef phHash As Long) As Long
 Private Declare Function CryptDestroyHash Lib "advapi32.dll" _
   (ByVal hHash As Long) As Long
@@ -63,28 +85,73 @@ Private Declare Function CryptHashData Lib "advapi32.dll" _
 Private Declare Function CryptGetHashParam Lib "advapi32.dll" _
   (ByVal hHash As Long, ByVal dwParam As Long, ByRef pbData As Any, _
   ByRef pdwDataLen As Long, ByVal dwFlags As Integer) As Long
+Private Declare Function CryptDeriveKey Lib "advapi32.dll" _
+  (ByVal hProv As Long, ByVal algid As Long, ByVal hBaseData As Long, ByVal dwFlags As Long, ByRef phKey As Long) As Long
+Private Declare Function CryptDestroyKey Lib "advapi32.dll" _
+  (ByVal hKey As Long) As Long
+Private Declare Function CryptSetHashParam Lib "advapi32.dll" _
+  (ByVal hHash As Long, ByVal dwParam As Long, _
+  ByRef pbData As Any, ByVal dwFlags As Integer) As Long
+Private Declare Function CryptImportKey Lib "advapi32.dll" _
+  (ByVal hProv As Long, ByRef pbData As Any, _
+  ByVal dwDataLen As Long, ByVal hPubKey As Long, _
+  ByVal dwFlags As Long, ByRef phKey As Long) As Long
+Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
+  (Destination As Any, Source As Any, ByVal Length As Long)
+Private Declare Sub ZeroMemory Lib "kernel32" Alias "RtlZeroMemory" _
+  (Destination As Any, ByVal Length As Long)
 Private Declare Function CryptBinaryToString Lib "crypt32.dll" Alias "CryptBinaryToStringA" _
-    (ByRef pbBinary As Any, ByVal cbBinary As Long, _
-     ByVal dwFlags As Long, ByVal pszString As String, _
-     ByRef pcchString As Long) As Long
+  (ByRef pbBinary As Any, ByVal cbBinary As Long, _
+  ByVal dwFlags As Long, ByVal pszString As String, _
+  ByRef pcchString As Long) As Long
 Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" _
-    (ByVal hwnd As Long, ByVal lpOperation As String, _
-    ByVal lpFile As String, ByVal lpParameters As String, _
-    ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
-Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+  (ByVal hwnd As Long, ByVal lpOperation As String, _
+  ByVal lpFile As String, ByVal lpParameters As String, _
+  ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
+Private Declare Sub Sleep Lib "kernel32" _
+  (ByVal dwMilliseconds As Long)
+Private Type HMAC_Info
+  HashAlgid As Long
+  pbInnerString As Byte
+  cbInnerString As Long
+  pbOuterString As Byte
+  cbOuterString As Long
+End Type
+Private Type BLOBHEADER
+  bType As Byte
+  bVersion As Byte
+  reserved As Integer
+  aiKeyAlg As Long
+End Type
+Private Type key_blob
+  hdr As BLOBHEADER
+  len As Long
+  key(1024) As Byte '// TODO might want to dynamically allocate this, Should Be Fine though
+End Type
+
+
+'-----------------------------------------------------------------------
+' Public method
+'-----------------------------------------------------------------------
 
 'アクセストークンを保存しているファイルを削除
+'成功すると True を返す
 Public Function DelTokenFile() As Boolean
   Dim intFileNo As Integer
   Dim strFileName As String
   
   On Error GoTo ErrorHandler
+  
+  ' 設定ファイルのパスを取得
   strFileName = GetTokenFileName()
+  
+  ' 取得できなかったらエラー
   If strFileName = "" Then
     DelTokenFile = False
     Exit Function
   End If
-
+  
+  ' 削除
   Kill strFileName
   DelTokenFile = True
   Exit Function
@@ -93,18 +160,16 @@ ErrorHandler:
   DelTokenFile = False
 End Function
 
+'成功すると「ok」を返す
 Public Function TweetPost( _
-  strPost As String, _
-  Optional Tweet_type As TweetType = Default_Tweet, _
-  Optional strStatusID As String = "" _
+    strPost As String, _
+    Optional Tweet_Type As TweetType = Default_Tweet, _
+    Optional strStatusID As String = "" _
 ) As String
+  
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Object  'Scripting.Dictionary
-  Dim reqdata As String
   Dim strReqURL As String
-  Dim digest As String
-  Dim buf() As Byte
-  Dim res As String
   Dim XMLDOM As Object 'MSXML2.DOMDocument
   Dim atoken As String, atoken_secret As String
   Dim strSig As String
@@ -124,23 +189,42 @@ Public Function TweetPost( _
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
   param("source") = "ExcelTweet"
-  If Tweet_type = Re_Tweet Then
-      '公式リツイート
+  
+  'ポストの種類で処理分岐
+  Select Case Tweet_Type
+    
+    '公式リツイート
+    Case Re_Tweet
       strReqURL = retw_url & strStatusID & ".xml"
       If strStatusID = "" Then
         MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
-        TweetPost = ""
+        TweetPost = "error"
         Exit Function
       End If
       param("id") = strStatusID
-  Else
-    strReqURL = post_url
-    param("status") = UrlEncode(Left(strPost, 140)) '140文字
-    '通常のポスト以外はは返信元ＩＤを入れる
-    If Tweet_type <> Default_Tweet And strStatusID <> "" Then
-      param("in_reply_to_status_id") = strStatusID
-    End If
-  End If
+            
+    'お気に入りに登録
+    Case Fv_Post
+      strReqURL = fav_add & strStatusID & ".xml"
+      If strStatusID = "" Then
+        MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
+        TweetPost = "error"
+        Exit Function
+      End If
+      param("id") = strStatusID
+    
+    'その他
+    Case Else
+      strReqURL = post_url
+      param("status") = UrlEncode(Left(strPost, 140)) '140文字
+      '通常のポスト以外はは返信元ＩＤを入れる
+      If Tweet_Type <> Default_Tweet And strStatusID <> "" Then
+        param("in_reply_to_status_id") = strStatusID
+      End If
+  
+  End Select
+  
+  'シグネチャ作成
   strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = UrlEncode(strSig)
   
@@ -153,11 +237,12 @@ Public Function TweetPost( _
   xhr.send UrlParse(param)
   
   '読み込みが完了するまでループ
-  'Do Until xhr.readyState = 4
-  '  DoEvents
+  Do Until xhr.readyState = 4
+    DoEvents
   '  Sleep 100
-  'Loop
+  Loop
   
+  'ステータスがエラーの場合
   If xhr.Status <> 200 Then
     MsgBox xhr.getAllResponseHeaders
     Set XMLDOM = xhr.responseXML
@@ -171,6 +256,192 @@ Public Function TweetPost( _
   Else
     TweetPost = "ok"
   End If
+  
+End Function
+
+'成功すると「ok」を返す
+Public Function StatusShow( _
+  strStatusID As String _
+) As String
+  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
+  Dim param As Object  'Scripting.Dictionary
+  Dim strReqURL As String
+  Dim XMLDOM As Object 'MSXML2.DOMDocument
+  Dim atoken As String, atoken_secret As String
+  Dim strSig As String
+  Dim i As Long
+
+  If Not IsArray(GetToken) Then
+    If isOAuth = False Then
+      MsgBox "アクセストークンが取得できませんでした", vbCritical
+      StatusShow = "error"
+      Exit Function
+    End If
+  End If
+  
+  atoken = GetToken(0)
+  atoken_secret = GetToken(1)
+  
+  Set param = CreateObject("Scripting.Dictionary")
+  param("oauth_token") = atoken
+  strReqURL = twtshow_url & strStatusID & ".xml"
+  strSig = MakeSignature("GET", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
+  param("oauth_signature") = UrlEncode(strSig)
+  Set xhr = CreateRequest("GET", strReqURL & "?" & UrlParse(param))
+  If xhr Is Nothing Then
+    MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
+    StatusShow = "error"
+    Exit Function
+  End If
+  xhr.send
+  
+  '読み込みが完了するまでループ
+  Do Until xhr.readyState = 4
+    DoEvents
+  '  Sleep 100
+  Loop
+  
+  If xhr.Status <> 200 Then
+    MsgBox xhr.getAllResponseHeaders
+    Set XMLDOM = xhr.responseXML
+    If XMLDOM Is Nothing Then
+      'MsgBox xhr.ResponseText
+      StatusShow = "error"
+    Else
+      StatusShow = XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
+    End If
+    Exit Function
+  Else
+    StatusShow = "ok"
+    Debug.Print xhr.responseText
+  End If
+End Function
+
+'(x,0):id
+'(x,1):screen name
+'(x,2):tweet text
+'(x,3):create time
+'引数 timeline_count:取得するタイムラインの数
+'     timeline_name:タイムラインの種類
+'戻り値が配列か確認して使う
+Public Function GetTimeLine_branch _
+  (Optional timeline_count As Long = 20, _
+  Optional timeline_name As TimeLineName = home_timeline _
+) As Collection
+  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
+  Dim param As Object  'Scripting.Dictionary
+  Dim XMLDOM As Object 'MSXML2.DOMDocument
+  Dim Statuses As Object 'MSXML2.IXMLDOMNode
+  Dim objStatus As Object 'MSXML2.IXMLDOMElement
+  Dim atoken As String, atoken_secret As String
+  Dim strSig As String
+  Dim i As Long
+  Dim strTimeLine() As String
+  Dim strTemp As String
+  Dim strTL_url As String
+  Dim udtUserInfo As StatusUser
+  Dim colStatus As Collection
+  Dim colTweets() As Collection
+
+  On Error GoTo ErrorHandler
+  
+  If Not IsArray(GetToken) Then
+    If isOAuth = False Then
+      MsgBox "アクセストークンが取得できませんでした", vbCritical
+    GoTo ErrorHandler
+    End If
+  End If
+  
+  Select Case timeline_name
+    Case TimeLineName.friends_timeline
+      strTL_url = timeline_url & "friends_timeline.xml"
+    Case TimeLineName.home_timeline
+      strTL_url = timeline_url & "home_timeline.xml"
+    Case TimeLineName.user_timeline
+      strTL_url = timeline_url & "user_timeline.xml"
+    Case TimeLineName.replies
+      strTL_url = timeline_url & "replies.xml"
+    Case TimeLineName.mentions
+      strTL_url = timeline_url & "mentions.xml"
+    Case TimeLineName.retweeted_by_me
+      strTL_url = timeline_url & "retweeted_by_me.xml"
+    Case TimeLineName.retweeted_to_me
+      strTL_url = timeline_url & "retweeted_to_me.xml"
+    Case TimeLineName.retweets_of_me
+      strTL_url = timeline_url & "retweets_of_me.xml"
+    Case TimeLineName.favorites_timeline
+      strTL_url = fav_url
+    Case Else
+      MsgBox "タイムラインの種類を特定できません", vbCritical
+      GetTimeLine = 0
+      Exit Function
+  End Select
+  
+  atoken = GetToken(0)
+  atoken_secret = GetToken(1)
+
+  Set param = CreateObject("Scripting.Dictionary")
+  param("oauth_token") = atoken 'Access_Token
+  param("count") = CStr(timeline_count)
+  strSig = MakeSignature("GET", strTL_url, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
+  param("oauth_signature") = UrlEncode(strSig)
+  
+  Set xhr = CreateRequest("GET", strTL_url & "?" & UrlParse(param))
+  If xhr Is Nothing Then
+    MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
+    GoTo ErrorHandler
+  End If
+  xhr.send
+  
+  '読み込みが完了するまでループ
+  Do Until xhr.readyState = 4
+    DoEvents
+    'Sleep 100
+  Loop
+ 
+  If xhr.Status <> 200 Then
+    MsgBox xhr.getAllResponseHeaders
+    Set XMLDOM = xhr.responseXML
+    If XMLDOM Is Nothing Then
+      MsgBox xhr.responseText
+    Else
+      MsgBox XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
+    End If
+    GoTo ErrorHandler
+  End If
+  
+  colTweets = New Collection
+  ReDim colTweets(param("count") - 1, 3)
+  
+  Set XMLDOM = xhr.responseXML
+  XMLDOM.setProperty "SelectionLanguage", "XPath"
+  Set Statuses = XMLDOM.childNodes(1)
+  If Statuses Is Nothing Then
+    GoTo ErrorHandler
+  End If
+  
+  i = 0
+  For Each objStatus In Statuses.childNodes
+'Debug.Print objStatus.selectSingleNode("user/profile_image_url").FirstChild.nodeValue
+    colTweets.Add CStr(objStatus.selectSingleNode("id").FirstChild.nodeValue), "id"
+    strTimeLine(i, 0) = CStr(objStatus.selectSingleNode("id").FirstChild.nodeValue)
+    strTimeLine(i, 1) = html_escape(objStatus.selectSingleNode("user/screen_name").FirstChild.nodeValue)
+    If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
+      strTimeLine(i, 2) = html_escape(objStatus.selectSingleNode("text").FirstChild.nodeValue)
+    Else
+      '公式リツート対応
+      strTimeLine(i, 2) = objStatus.selectSingleNode("retweeted_status/user/screen_name").FirstChild.nodeValue
+      strTimeLine(i, 2) = "RT @" & strTimeLine(i, 2) & ": "
+      strTimeLine(i, 2) = html_escape(strTimeLine(i, 2)) & _
+                          html_escape(objStatus.selectSingleNode("retweeted_status/text").FirstChild.nodeValue)
+    End If
+    strTimeLine(i, 3) = html_escape(Format(ConvertCreateTime(objStatus.selectSingleNode("created_at").FirstChild.nodeValue), "yy-mm-dd hh:mm"))
+    i = i + 1
+  Next
+  GetTimeLine = strTimeLine
+  Exit Function
+ErrorHandler:
+  GetTimeLine = 0
 End Function
 
 '(x,0):id
@@ -186,8 +457,6 @@ Public Function GetTimeLine _
 ) As Variant
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Object  'Scripting.Dictionary
-  Dim reqdata As String
-  Dim res As String
   Dim XMLDOM As Object 'MSXML2.DOMDocument
   Dim Statuses As Object 'MSXML2.IXMLDOMNode
   Dim objStatus As Object 'MSXML2.IXMLDOMElement
@@ -225,6 +494,8 @@ Public Function GetTimeLine _
       strTL_url = timeline_url & "retweeted_to_me.xml"
     Case retweets_of_me
       strTL_url = timeline_url & "retweets_of_me.xml"
+    Case favorites_timeline
+      strTL_url = fav_url
     Case Else
       MsgBox "タイムラインの種類を特定できません", vbCritical
       GetTimeLine = 0
@@ -249,10 +520,10 @@ Public Function GetTimeLine _
   xhr.send
   
   '読み込みが完了するまでループ
-  'Do Until xhr.readyState = 4
-  '  DoEvents
-  '  Sleep 100
-  'Loop
+  Do Until xhr.readyState = 4
+    DoEvents
+    'Sleep 100
+  Loop
  
   If xhr.Status <> 200 Then
     MsgBox xhr.getAllResponseHeaders
@@ -277,6 +548,7 @@ Public Function GetTimeLine _
   
   i = 0
   For Each objStatus In Statuses.childNodes
+'Debug.Print objStatus.selectSingleNode("user/profile_image_url").FirstChild.nodeValue
     strTimeLine(i, 0) = CStr(objStatus.selectSingleNode("id").FirstChild.nodeValue)
     strTimeLine(i, 1) = html_escape(objStatus.selectSingleNode("user/screen_name").FirstChild.nodeValue)
     If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
@@ -297,30 +569,36 @@ ErrorHandler:
   GetTimeLine = 0
 End Function
 
+
+'-----------------------------------------------------------------------
+' Private method
+'-----------------------------------------------------------------------
+
 'コンシューマキーを使ってアクセストークンを取得してファイルに保存する。
 Private Function isOAuth() As Boolean
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
-  Dim param As Scripting.Dictionary
-  Dim reqdata As String
-  Dim res As String
+  Dim dicParam As Scripting.Dictionary
+  Dim strRes As String
   Dim otoken As String, otoken_secret As String
   Dim atoken As String, atoken_secret As String
   Dim strSig As String
   Dim strPin As String
   Dim i As Long
   
-  Set param = CreateObject("Scripting.Dictionary")
+  On Error GoTo ErrorHandler
+  
+  Set dicParam = CreateObject("Scripting.Dictionary")
 
-  strSig = MakeSignature("GET", reqt_url, param, UrlEncode(Consumer_secret) & "&")
+  strSig = MakeSignature("GET", reqt_url, dicParam, UrlEncode(Consumer_secret) & "&")
   param("oauth_signature") = UrlEncode(strSig)
 
-  Set xhr = CreateRequest("GET", reqt_url & "?" & UrlParse(param))
+  Set xhr = CreateRequest("GET", reqt_url & "?" & UrlParse(dicParam))
   If xhr Is Nothing Then
     MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
     isOAuth = False
     Exit Function
   End If
-  xhr.send
+  xhr.send '送信
   
   '取得失敗
   If xhr.Status <> 200 Then
@@ -329,11 +607,11 @@ Private Function isOAuth() As Boolean
   End If
   
   'レスポンステキスト
-  res = xhr.responseText
+  strRes = xhr.responseText
   
   'authトークン（一時的に使う）
-  otoken = GetOAuthToken(res)
-  otoken_secret = GetOAuthToken_secret(res)
+  otoken = GetOAuthToken(strRes)
+  otoken_secret = GetOAuthToken_secret(strRes)
 
   'レスポンスにトークンが含まれていない場合
   If otoken = "" Or otoken_secret = "" Then
@@ -349,13 +627,13 @@ Private Function isOAuth() As Boolean
     Exit Function
   End If
 
-  param.RemoveAll
-  param("oauth_verifier") = strPin '今回だけ（PINコード）
-  param("oauth_token") = otoken '今回だけ（authトークン）
-  strSig = MakeSignature("GET", acct_url, param, UrlEncode(Consumer_secret) & "&")
-  param("oauth_signature") = UrlEncode(strSig)
+  dicParam.RemoveAll
+  dicParam("oauth_verifier") = strPin '今回だけ（PINコード）
+  dicParam("oauth_token") = otoken '今回だけ（authトークン）
+  strSig = MakeSignature("GET", acct_url, dicParam, UrlEncode(Consumer_secret) & "&")
+  dicParam("oauth_signature") = UrlEncode(strSig)
 
-  Set xhr = CreateRequest("GET", acct_url & "?" & UrlParse(param))
+  Set xhr = CreateRequest("GET", acct_url & "?" & UrlParse(dicParam))
   xhr.send
   
   If xhr.Status <> 200 Then
@@ -364,10 +642,10 @@ Private Function isOAuth() As Boolean
   End If
 
   'レスポンステキスト
-  res = xhr.responseText
+  strRes = xhr.responseText
   
-  atoken = GetOAuthToken(res)
-  atoken_secret = GetOAuthToken_secret(res)
+  atoken = GetOAuthToken(strRes)
+  atoken_secret = GetOAuthToken_secret(strRes)
 
   'レスポンスにトークンが含まれていない場合
   If atoken = "" Or atoken_secret = "" Then
@@ -381,6 +659,9 @@ Private Function isOAuth() As Boolean
   Else
     isOAuth = False '保存エラー
   End If
+  
+ErrorHandler:
+  isOAuth = False 'エラー
 End Function
 
 
@@ -407,6 +688,7 @@ Private Function CreateRequest(strMethod As String, strRequestParm As String) As
   
   'オブジェクトを開く
   Call xhr.Open(strMethod, strRequestParm, False) '同期処理
+  'Call xhr.Open(strMethod, strRequestParm, True)  '非同期処理
   
   'プロキシ認証
   If Len(proxy_user) > 0 Then
@@ -521,14 +803,22 @@ Private Function UrlParse(dictionary_object As Object) As String
   On Error GoTo 0
 End Function
 
-Private Function MakeSHA1Hash(bytValue() As Byte) As String
+'暗号化
+Private Function hmac(ByVal strKey As String, ByVal strData As String) As String
+  Dim bytKey() As Byte
+  Dim bytData() As Byte
   Dim ret As Long
-  Dim lngProv As Long 'コンテナオブジェクト
-  Dim lngHash As Long 'ハッシュオブジェクト
-  Dim lngHashSize As Long 'ハッシュサイズ
-  Dim bytBuff() As Byte 'ハッシュが格納されるエリア
-  Dim strHex As String
+  Dim lngProv As Long       'コンテナオブジェクト
+  Dim lngHash As Long       'ハッシュオブジェクト
+  Dim lngHmacHash As Long   'ハッシュオブジェクト
+  Dim lngHashSize As Long   'ハッシュサイズ
+  Dim lngKey As Long        'キーオブジェクト
+  Dim bytBuff() As Byte     'ハッシュが格納されるエリア
+  Dim strHex As String      '16進数文字列
   Dim i As Long
+  Dim HmacInfo As HMAC_Info
+  Dim keyblob As key_blob
+  Dim key_len As Long
   Const CRYPT_VERIFYCONTEXT As Long = &HF0000000
   Const MS_DEF_PROV As String = "Microsoft Base Cryptographic Provider v1.0"
   Const ALG_TYPE_ANY As Long = 0
@@ -536,105 +826,126 @@ Private Function MakeSHA1Hash(bytValue() As Byte) As String
   Const ALG_TYPE_BLOCK As Long = 1536
   Const ALG_SID_SHA As Long = 4
   Const ALG_SID_SHA1 As Long = ALG_SID_SHA
+  Const ALG_CLASS_DATA_ENCRYPT As Long = 24576
+  Const ALG_TYPE_STREAM As Long = 2048
+  Const ALG_SID_RC4 As Long = 1
+  Const ALG_SID_RC2 As Long = 2
+  Const ALG_SID_HMAC As Long = 9
   Const CALG_SHA As Long = ALG_CLASS_HASH Or ALG_TYPE_ANY Or ALG_SID_SHA
   Const CALG_SHA1 As Long = CALG_SHA
-  Const PROV_RSA_FULL As Long = 1
+  Const CALG_RC2 As Long = ALG_CLASS_DATA_ENCRYPT Or ALG_TYPE_BLOCK Or ALG_SID_RC2
+  Const CALG_RC4 As Long = ALG_CLASS_DATA_ENCRYPT Or ALG_TYPE_STREAM Or ALG_SID_RC4
+  Const CALG_HMAC As Long = ALG_CLASS_HASH Or ALG_TYPE_ANY Or ALG_SID_HMAC
+  Const HP_HMAC_INFO = &H5
   Const HP_HASHVAL As Long = 2
-  'SHA1ハッシュ
-  Const lngHashType = CALG_SHA1
+  Const PROV_RSA_FULL As Long = 1
+  Const PLAINTEXTKEYBLOB As Long = 8
+  Const CUR_BLOB_VERSION As Long = 2
+  Const CRYPT_IPSEC_HMAC_KEY = &H100
   
+  If strKey = "" And strData = "" Then Exit Function
+  
+  hmac = ""
+  strHex = ""
+  
+  'バイト配列へ
+  bytKey = StrConv(strKey, vbFromUnicode)
+  bytData = StrConv(strData, vbFromUnicode)
+
+  '1024バイトチェック
+  key_len = UBound(bytKey) + 1
+  If key_len > 1024 Then
+    hmac = ""
+    Exit Function
+  End If
+
   'キーコンテナの作成
-  ret = CryptAcquireContext(lngProv, vbNullString, MS_DEF_PROV, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)
+  ret = CryptAcquireContext(lngProv, vbNullString, vbNullString, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)
   If ret = False Then
-    MakeSHA1Hash = ""
-    Exit Function
+    GoTo ExitHandler
   End If
-  
-  'ハッシュオブジェクトの作成
-  ret = CryptCreateHash(lngProv, lngHashType, 0, 0, lngHash)
-  If ret = False Then
-    Call CryptReleaseContext(lngProv, 0)
-    Exit Function
-  End If
-  
-  'ハッシュデータを作る
-  ret = CryptHashData(lngHash, bytValue(0), UBound(bytValue) + 1, 0)
+
+'  '鍵作り
+'  ret = CryptDeriveKey(lngProv, CALG_RC2, lngHash, 0, lngKey)
+'  If ret = False Then
+'    Call CryptDestroyKey(lngKey)
+'    GoTo ExitHandler
+'  End If
+
+  '// key creation based on
+  '// http://mirror.leaseweb.com/NetBSD/NetBSD-release-5-0/src/dist/wpa/src/crypto/crypto_cryptoapi.c
+  keyblob.hdr.bType = PLAINTEXTKEYBLOB
+  keyblob.hdr.bVersion = CUR_BLOB_VERSION
+  keyblob.hdr.reserved = 0
+  '/*
+  '* Note: RC2 is not really used, but that can be used to
+  '* import HMAC keys of up to 16 byte long.
+  '* CRYPT_IPSEC_HMAC_KEY flag for CryptImportKey() is needed to
+  '* be able to import longer keys (HMAC-SHA1 uses 20-byte key).
+  '*/
+  keyblob.hdr.aiKeyAlg = CALG_RC2
+  keyblob.len = key_len
+  Call ZeroMemory(keyblob.key(0), key_len)
+  Call CopyMemory(keyblob.key(0), bytKey(0), key_len)
+  ret = CryptImportKey(lngProv, keyblob, 12 + key_len, 0, CRYPT_IPSEC_HMAC_KEY, lngKey)
   If ret = False Then
     GoTo ExitHandler
   End If
   
+  'ハッシュオブジェクトの作成
+  ret = CryptCreateHash(lngProv, CALG_HMAC, lngKey, 0, lngHmacHash)
+  If ret = False Then
+    GoTo ExitHandler
+  End If
+  
+  'パラメータセット
+  HmacInfo.HashAlgid = CALG_SHA1
+  ret = CryptSetHashParam(lngHmacHash, HP_HMAC_INFO, HmacInfo, 0)
+  If ret = False Then
+    GoTo ExitHandler
+  End If
+
+  'ハッシュデータを作る
+  ret = CryptHashData(lngHmacHash, bytData(0), UBound(bytData) + 1, 0)
+  If ret = False Then
+    GoTo ExitHandler
+  End If
+
   '必要なサイズを取得
-  ret = CryptGetHashParam(lngHash, HP_HASHVAL, ByVal 0, lngHashSize, 0)
+  ret = CryptGetHashParam(lngHmacHash, HP_HASHVAL, ByVal 0, lngHashSize, 0)
   If ret = False Then
     GoTo ExitHandler
   End If
   
   'ハッシュを取り出す
-  ReDim bytBuff(lngHashSize)
+  ReDim bytBuff(lngHashSize - 1)
   For i = 0 To UBound(bytBuff)
     bytBuff(i) = 0
   Next
-  ret = CryptGetHashParam(lngHash, HP_HASHVAL, bytBuff(0), lngHashSize, 0)
+  ret = CryptGetHashParam(lngHmacHash, HP_HASHVAL, bytBuff(0), lngHashSize, 0)
   If ret = False Then
     GoTo ExitHandler
   End If
-  
+
   'HEX文字列へ
-  For i = 0 To UBound(bytBuff) - 1
+  For i = 0 To UBound(bytBuff)
     strHex = strHex & Right("0" & LCase(Hex(bytBuff(i))), 2)
   Next
   
-  MakeSHA1Hash = strHex
 ExitHandler:
-    Call CryptDestroyHash(lngHash)
-    Call CryptReleaseContext(lngProv, 0)
-
-End Function
-
-'暗号化
-Private Function hmac(ByVal key As String, ByVal data As String) As String
-  Dim i As Integer
-  Dim hash As String
-  Dim key_byte() As Byte
-  Dim key_len As Long
-  Dim data_len As Long
-  Dim ipad(63) As Byte
-  Dim opad(63) As Byte
-  Dim key_hash() As Byte
-  Dim data_hash As String
-
-  If key = "" And data = "" Then Exit Function
-
-  key_len = Len(key)
-
-  key_byte = StrConv(key, vbFromUnicode)
-  If key_len > 64 Then
-      key_hash = StrToBynary(MakeSHA1Hash(key_byte))
-      key_len = 20
-  Else
-      key_hash = key_byte
+  If (lngHmacHash) Then
+    CryptDestroyHash (lngHmacHash)
   End If
-  
-  ReDim Preserve key_hash(63)
-  For i = key_len To 63
-    key_hash(i) = 0
-  Next
-
-  For i = 0 To 63
-    ipad(i) = 0
-    opad(i) = 0
-  Next
-
-  For i = 0 To 63
-    ipad(i) = key_hash(i) Xor &H36
-    opad(i) = key_hash(i) Xor &H5C
-  Next
-
-  data_hash = MakeSHA1Hash(CStr(ipad) & StrConv(data, vbFromUnicode))
-
-  hash = MakeSHA1Hash(CStr(opad) & CStr(StrToBynary(data_hash)))
-
-  hmac = hash
+  If (lngKey) Then
+    Call CryptDestroyKey(lngKey)
+  End If
+  If (lngHash) Then
+    Call CryptDestroyHash(lngHash)
+  End If
+  If (lngProv) Then
+    Call CryptReleaseContext(lngProv, 0)
+  End If
+  hmac = strHex
 End Function
 
 'バイト文字列からバイト配列を返す
@@ -658,13 +969,16 @@ End Function
 Private Function GetOAuthToken(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
+  If Not IsArray(s) Then: GoTo ErrorHandler
   For Each a In s
     v = Split(a, "=")
+    If Not IsArray(v) Then: GoTo ErrorHandler
     If v(0) = "oauth_token" Then
       GetOAuthToken = v(1)
       Exit Function
     End If
   Next
+ErrorHandler:
   GetOAuthToken = ""
 End Function
 
@@ -672,13 +986,16 @@ End Function
 Private Function GetOAuthToken_secret(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
+  If Not IsArray(s) Then: GoTo ErrorHandler
   For Each a In s
     v = Split(a, "=")
+    If Not IsArray(v) Then: GoTo ErrorHandler
     If v(0) = "oauth_token_secret" Then
       GetOAuthToken_secret = v(1)
       Exit Function
     End If
   Next
+ErrorHandler:
   GetOAuthToken_secret = ""
 End Function
 
@@ -690,7 +1007,7 @@ Private Function html_escape(strString As String) As String
   strTemp = Replace(strTemp, "&lt;", "<")
   strTemp = Replace(strTemp, "&gt;", ">")
   strTemp = Replace(strTemp, "&quot;", """")
-  strTemp = Replace(strTemp, vbLf, "") 'ついでに改行も削除
+  strTemp = Replace(strTemp, vbLf, " ") 'ついでに改行も削除
   html_escape = strTemp
 End Function
 
@@ -698,15 +1015,30 @@ End Function
 Private Function GetTokenFileName() As String
   Dim strFileName As String
   Dim i As Long
+  Dim strHomePath As String
+  
+  On Error GoTo ErrorHandler
   
   strFileName = ""
+  
+  If Len(Environ("USERPROFILE")) = 0 Then
+    strHomePath = CurDir
+  Else
+    strHomePath = Environ("USERPROFILE")
+  End If
+  
   i = InStr(1, ThisWorkbook.Name, ".")
   If i Then
-    strFileName = Environ("USERPROFILE") & "\." & Mid(ThisWorkbook.Name, 1, InStr(1, ThisWorkbook.Name, ".") - 1)
+    strFileName = strHomePath & "\." & Mid(ThisWorkbook.Name, 1, InStr(1, ThisWorkbook.Name, ".") - 1)
   Else
-    strFileName = Environ("USERPROFILE") & "\." & ThisWorkbook.Name
+    strFileName = strHomePath & "\." & ThisWorkbook.Name
   End If
+  
   GetTokenFileName = strFileName
+  Exit Function
+
+ErrorHandler:
+  GetTokenFileName = ""
 End Function
 
 'アクセストークンを読み出す。
