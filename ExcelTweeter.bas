@@ -1,4 +1,3 @@
-Attribute VB_Name = "ExcelTweeter"
 Option Explicit
 
 '-----------------------------------
@@ -164,7 +163,7 @@ End Function
 Public Function TweetPost( _
     strPost As String, _
     Optional Tweet_Type As TweetType = Default_Tweet, _
-    Optional strStatusID As String = "" _
+    Optional strStatusId As String = "" _
 ) As String
   
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
@@ -195,36 +194,36 @@ Public Function TweetPost( _
     
     '公式リツイート
     Case Re_Tweet
-      strReqURL = retw_url & strStatusID & ".xml"
-      If strStatusID = "" Then
+      strReqURL = retw_url & strStatusId & ".xml"
+      If strStatusId = "" Then
         MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
         TweetPost = "error"
         Exit Function
       End If
-      param("id") = strStatusID
+      param("id") = strStatusId
             
     'お気に入りに登録
     Case Fv_Post
-      strReqURL = fav_add & strStatusID & ".xml"
-      If strStatusID = "" Then
+      strReqURL = fav_add & strStatusId & ".xml"
+      If strStatusId = "" Then
         MsgBox "リツート元のステータスＩＤが取得できませんでした。", vbCritical
         TweetPost = "error"
         Exit Function
       End If
-      param("id") = strStatusID
+      param("id") = strStatusId
     
     'その他
     Case Else
       strReqURL = post_url
       param("status") = UrlEncode(Left(strPost, 140)) '140文字
       '通常のポスト以外はは返信元ＩＤを入れる
-      If Tweet_Type <> Default_Tweet And strStatusID <> "" Then
-        param("in_reply_to_status_id") = strStatusID
+      If Tweet_Type <> Default_Tweet And strStatusId <> "" Then
+        param("in_reply_to_status_id") = strStatusId
       End If
   
   End Select
   
-  'シグネチャ作成
+  '署名を作成
   strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = UrlEncode(strSig)
   
@@ -261,7 +260,7 @@ End Function
 
 '成功すると「ok」を返す
 Public Function StatusShow( _
-  strStatusID As String _
+  strStatusId As String _
 ) As String
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Object  'Scripting.Dictionary
@@ -284,7 +283,7 @@ Public Function StatusShow( _
   
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
-  strReqURL = twtshow_url & strStatusID & ".xml"
+  strReqURL = twtshow_url & strStatusId & ".xml"
   strSig = MakeSignature("GET", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = UrlEncode(strSig)
   Set xhr = CreateRequest("GET", strReqURL & "?" & UrlParse(param))
@@ -317,16 +316,19 @@ Public Function StatusShow( _
   End If
 End Function
 
+
 '(x,0):id
 '(x,1):screen name
 '(x,2):tweet text
 '(x,3):create time
 '引数 timeline_count:取得するタイムラインの数
 '     timeline_name:タイムラインの種類
+'     otpdic:その他指定項目をハッシュで渡す
 '戻り値が配列か確認して使う
 Public Function GetTimeLine _
   (Optional timeline_count As Long = 20, _
-  Optional timeline_name As TimeLineName = home_timeline _
+  Optional timeline_name As TimeLineName = home_timeline, _
+  Optional optdic As Object = Nothing _
 ) As Variant
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim param As Object  'Scripting.Dictionary
@@ -335,10 +337,12 @@ Public Function GetTimeLine _
   Dim objStatus As Object 'MSXML2.IXMLDOMElement
   Dim atoken As String, atoken_secret As String
   Dim strSig As String
-  Dim i As Long
+  Dim i As Long, j As Long
   Dim strTimeLine() As String
   Dim strTemp As String
   Dim strTL_url As String
+  Dim dickey As Variant       'scripting.dictionary key
+  Dim urls As Object 'entities
 
   On Error GoTo ErrorHandler
   
@@ -381,6 +385,12 @@ Public Function GetTimeLine _
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken 'Access_Token
   param("count") = CStr(timeline_count)
+  param("include_entities") = "true"  '追加
+  If Not optdic Is Nothing Then
+    For Each dickey In optdic.Keys
+      param(dickey) = optdic(dickey)
+    Next
+  End If
   strSig = MakeSignature("GET", strTL_url, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = UrlEncode(strSig)
   
@@ -407,6 +417,7 @@ Public Function GetTimeLine _
       MsgBox XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
     End If
     GetTimeLine = 0
+    Debug.Print xhr.responseText
     Exit Function
   End If
   
@@ -416,6 +427,7 @@ Public Function GetTimeLine _
   Set Statuses = XMLDOM.childNodes(1)
   If Statuses Is Nothing Then
     GetTimeLine = 0
+    Debug.Print xhr.responseText
     Exit Function
   End If
   
@@ -434,12 +446,26 @@ Public Function GetTimeLine _
                           html_escape(objStatus.selectSingleNode("retweeted_status/text").FirstChild.nodeValue)
     End If
     strTimeLine(i, 3) = html_escape(Format(ConvertCreateTime(objStatus.selectSingleNode("created_at").FirstChild.nodeValue), "yy-mm-dd hh:mm"))
+    
+    't.co対策
+    If objStatus.selectNodes("entities/urls/url").Length > 0 Then  'entities/urlsに入るのであるか確認
+      'urlsを取得（複数ある）
+      Set urls = objStatus.selectNodes("entities/urls")
+      For j = 0 To urls.Length - 1  'すべて取得する
+        strTimeLine(i, 2) = Replace(strTimeLine(i, 2), urls(j).selectSingleNode("url/url").FirstChild.nodeValue, urls(j).selectSingleNode("url/expanded_url").FirstChild.nodeValue)
+      Next
+    End If
+    
     i = i + 1
   Next
   GetTimeLine = strTimeLine
   Exit Function
 ErrorHandler:
   GetTimeLine = 0
+  If Not xhr Is Nothing Then
+    Debug.Print xhr.responseText
+  End If
+  Debug.Print Err.Number; Err.Description
 End Function
 
 
@@ -612,6 +638,7 @@ Private Function UrlEncode(strTarget As String) As String
   s = Replace(s, "(", "%28")  '(
   s = Replace(s, ")", "%29")  ')
   s = Replace(s, "!", "%21")  '!
+  s = Replace(s, "*", "%2A")  '*
   UrlEncode = s
 End Function
 
