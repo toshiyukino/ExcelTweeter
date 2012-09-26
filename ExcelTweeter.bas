@@ -215,7 +215,7 @@ Public Function TweetPost( _
     'その他
     Case Else
       strReqURL = post_url
-      param("status") = UrlEncode(Left(strPost, 140)) '140文字
+      param("status") = Left(strPost, 140) '140文字
       '通常のポスト以外はは返信元ＩＤを入れる
       If Tweet_Type <> Default_Tweet And strStatusId <> "" Then
         param("in_reply_to_status_id") = strStatusId
@@ -225,7 +225,10 @@ Public Function TweetPost( _
   
   '署名を作成
   strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
-  param("oauth_signature") = UrlEncode(strSig)
+  param("oauth_signature") = strSig
+  
+  'status作り直し
+  'param("status") = Left(strPost, 140) '140文字
   
   Set xhr = CreateRequest("POST", strReqURL)
   If xhr Is Nothing Then
@@ -392,7 +395,7 @@ Public Function GetTimeLine _
     Next
   End If
   strSig = MakeSignature("GET", strTL_url, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
-  param("oauth_signature") = UrlEncode(strSig)
+  param("oauth_signature") = strSig
   
   Set xhr = CreateRequest("GET", strTL_url & "?" & UrlParse(param))
   If xhr Is Nothing Then
@@ -620,30 +623,83 @@ Private Function MakeSignature(strMethod As String, strUrl As String, ByRef Dict
   DictionaryObject("oauth_nonce") = CStr(Int((100000000000# - 10000000 + 1) * Rnd + 10000000)) '適当に一意な値
   
   strReqData = strMethod & "&" & UrlEncode(strUrl) & "&" & UrlEncode(UrlParse(DictionaryObject))
-  strDigest = hmac(strHmacKey, strReqData)
+  strDigest = hmac2(strHmacKey, strReqData)
   buf = StrToBynary(strDigest)
-  MakeSignature = Trim(EncodeBase64(buf)) '& vbLf
+  MakeSignature = Trim(EncodeBase64_2(buf)) '& vbLf
   
 End Function
 
-'wsh機能を使う(JScript)
-Private Function UrlEncode(strTarget As String) As String
-  Dim obj As Object
-  Dim s As String
-  If Len(strTarget) = 0 Then Exit Function
-  Set obj = CreateObject("ScriptControl")
-  obj.Language = "JScript"
-  s = obj.CodeObject.encodeURIComponent(strTarget)
-  'エンコードされないので文字の対策
-  s = Replace(s, "(", "%28")  '(
-  s = Replace(s, ")", "%29")  ')
-  s = Replace(s, "!", "%21")  '!
-  s = Replace(s, "*", "%2A")  '*
+'UTF8バイト配列を返す
+Private Function ConvUTF8_UTF8Encoding(strValue)
+  Dim UTF8_enc
+  Dim bytBuff
+  Set UTF8_enc = CreateObject("System.Text.UTF8Encoding")
+  'バイト配列へ ('_4'の追加で、強制的に指定のオーバーロードメソッドを呼び出す裏技(オーバーロードさせない))
+  ConvUTF8_UTF8Encoding = UTF8_enc.GetBytes_4(strValue)
+  Set UTF8_enc = Nothing
+End Function
+
+
+'UTF8バイト配列を返す
+Private Function ConvUTF8_ADODBStream(strValue)
+  Dim UTF8_enc
+  Dim bytBuff
+  Set UTF8_enc = CreateObject("ADODB.Stream")
+  With UTF8_enc
+    .Open
+    .Type = 2   'adTypeText
+    .Charset = "utf-8"
+    .WriteText = strValue
+    .Position = 0
+    .Type = 1   'adTypeBinary
+    .Position = 3 'utf-8はオフセットさせる
+    bytBuff = .Read()
+    .Close
+  End With
+  ConvUTF8_ADODBStream = bytBuff
+  Set UTF8_enc = Nothing
+End Function
+
+'英字, 数字, '-', '.', '_', '~' 以外をURL(パーセント)エンコードする
+Private Function UrlEncode(ByVal strTarget)
+  Dim s, b, tmp
+  Dim i
+  For i = 0 To Len(strTarget) - 1
+    tmp = Mid(strTarget, i + 1, 1)
+    Select Case tmp
+      Case "a" To "z", "A" To "Z", "0" To "9", "_", ".", "~", "-"
+        s = s & tmp
+      Case Else
+        For Each b In ConvUTF8_UTF8Encoding(tmp)
+          s = s & "%" & Right("0" & Hex(b), 2)
+        Next
+    End Select
+  Next
   UrlEncode = s
 End Function
 
+'JavaScriptの encodeURIComponent() クローン（但しスペースは'+'にする）
+Private Function encodeURIComponent(ByVal strValue)
+  Dim s, b, tmp
+  Dim i
+  For i = 0 To Len(strValue) - 1
+    tmp = Mid(strValue, i + 1, 1)
+    Select Case tmp
+      Case "a" To "z", "A" To "Z", "0" To "9", "'", "_", ".", "~", "/", "-", "*", "(", ")"
+        s = s & tmp
+      Case " "
+        s = s & "+"
+      Case Else
+        For Each b In ConvUTF8_UTF8Encoding(tmp)
+          s = s & "%" & Right("0" & Hex(b), 2)
+        Next
+    End Select
+  Next
+  encodeURIComponent = s
+End Function
+
 'win32API(恐らくwin2000から動く)
-Private Function EncodeBase64(bytTarget() As Byte) As String
+Private Function encodeBase64(bytTarget() As Byte) As String
   Dim strBase64 As String
   Dim lngBase64_Len As Long
   Dim ret As Long
@@ -654,8 +710,19 @@ Private Function EncodeBase64(bytTarget() As Byte) As String
       strBase64 = Space(lngBase64_Len)
       ret = CryptBinaryToString(bytTarget(0), UBound(bytTarget) + 1, CRYPT_STRING_BASE64, strBase64, Len(strBase64))
   End If
-  EncodeBase64 = Mid(strBase64, 1, lngBase64_Len - 3)
+  encodeBase64 = Mid(strBase64, 1, lngBase64_Len - 3)
 End Function
+
+'ActiveX版
+Private Function EncodeBase64_2(bytes)
+  Dim dom, elm
+  Set dom = CreateObject("Microsoft.XMLDOM")
+  Set elm = dom.createElement("tmp")
+  elm.DataType = "bin.base64"
+  elm.nodeTypedValue = bytes
+  EncodeBase64_2 = elm.Text
+End Function
+
 
 'keyをソートして配列を返す
 Private Function KeySort(dictionary_object As Object) As Variant
@@ -686,6 +753,7 @@ Private Function KeySort(dictionary_object As Object) As Variant
 End Function
 
 'dictionaryオブジェクトのキーをソートしてkey1=value1&key2=valu2...の文字列を返す
+'key と value を encodeURIComponent でそれぞれエンコードする
 Private Function UrlParse(dictionary_object As Object) As String
   Dim strReqData As String
   Dim d As Variant
@@ -693,7 +761,7 @@ Private Function UrlParse(dictionary_object As Object) As String
   On Error Resume Next
   d = KeySort(dictionary_object)
   For i = 0 To UBound(d)
-    strReqData = strReqData & "&" & CStr(d(i)) & "=" & dictionary_object(d(i))
+    strReqData = strReqData & "&" & encodeURIComponent(CStr(d(i))) & "=" & encodeURIComponent(dictionary_object(d(i)))
   Next
   If Err.Number = 0 Then
     UrlParse = Mid(strReqData, 2)
@@ -848,6 +916,35 @@ ExitHandler:
   hmac = strHex
 End Function
 
+Private Function hmac2(ByVal strKey, ByVal strData) As String
+  Dim HMACSHA1
+  Dim bytUTF8
+  Dim bytKey
+  Dim bytData
+  Dim bytBuff
+  Dim i
+  Dim strHex
+  
+  If strKey = "" And strData = "" Then Exit Function
+      
+  bytKey = ConvUTF8_UTF8Encoding(strKey)
+  bytData = ConvUTF8_UTF8Encoding(strData)
+
+  Set HMACSHA1 = CreateObject("System.Security.Cryptography.HMACSHA1")
+  HMACSHA1.key = bytKey
+  HMACSHA1.ComputeHash_2 (bytData)
+  bytBuff = HMACSHA1.Hash
+  
+  'HEX文字列へ
+  For i = 0 To UBound(bytBuff)
+    strHex = strHex & Right("0" & LCase(Hex(bytBuff(i))), 2)
+  Next
+  
+  Set HMACSHA1 = Nothing
+  hmac2 = strHex
+End Function
+
+
 'バイト文字列からバイト配列を返す
 Private Function StrToBynary(strHexString As String) As Byte()
   Dim buf() As Byte
@@ -992,3 +1089,4 @@ Private Function SaveToken(access_token As String, access_token_secret As String
 ErrorHandler:
   SaveToken = False
 End Function
+
