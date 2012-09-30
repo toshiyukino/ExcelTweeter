@@ -65,68 +65,6 @@ Private Const fav_add = "https://api.twitter.com/1/favorites/create/"  ' & "id.f
 '-----------------------------------
 Private Const Consumer_key = "TJ0pecuWf8ctAExNQbKLQ"
 Private Const Consumer_secret = "oZkjqJCb0nIdwK3RmPe2lEcsw9QzK8Q0NQLolqDqMwY"
-'-----------------------------------
-'API 宣言
-'-----------------------------------
-Private Declare Function CryptAcquireContext Lib "advapi32.dll" Alias "CryptAcquireContextA" _
-  (ByRef phProv As Long, ByVal pszContainer As String, _
-  ByVal pszProvider As String, ByVal dwProvType As Long, ByVal dwFlags As Long) As Long
-Private Declare Function CryptReleaseContext Lib "advapi32.dll" _
-  (ByVal hProv As Long, ByVal dwFlags As Long) As Long
-Private Declare Function CryptCreateHash Lib "advapi32.dll" _
-  (ByVal hProv As Long, ByVal algid As Long, ByVal hKey As Long, _
-  ByVal dwFlags As Long, ByRef phHash As Long) As Long
-Private Declare Function CryptDestroyHash Lib "advapi32.dll" _
-  (ByVal hHash As Long) As Long
-Private Declare Function CryptHashData Lib "advapi32.dll" _
-  (ByVal hHash As Long, ByRef pbData As Any, _
-  ByVal dwDataLen As Long, ByVal dwFlags As Long) As Long
-Private Declare Function CryptGetHashParam Lib "advapi32.dll" _
-  (ByVal hHash As Long, ByVal dwParam As Long, ByRef pbData As Any, _
-  ByRef pdwDataLen As Long, ByVal dwFlags As Integer) As Long
-Private Declare Function CryptDeriveKey Lib "advapi32.dll" _
-  (ByVal hProv As Long, ByVal algid As Long, ByVal hBaseData As Long, ByVal dwFlags As Long, ByRef phKey As Long) As Long
-Private Declare Function CryptDestroyKey Lib "advapi32.dll" _
-  (ByVal hKey As Long) As Long
-Private Declare Function CryptSetHashParam Lib "advapi32.dll" _
-  (ByVal hHash As Long, ByVal dwParam As Long, _
-  ByRef pbData As Any, ByVal dwFlags As Integer) As Long
-Private Declare Function CryptImportKey Lib "advapi32.dll" _
-  (ByVal hProv As Long, ByRef pbData As Any, _
-  ByVal dwDataLen As Long, ByVal hPubKey As Long, _
-  ByVal dwFlags As Long, ByRef phKey As Long) As Long
-Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-  (Destination As Any, Source As Any, ByVal Length As Long)
-Private Declare Sub ZeroMemory Lib "kernel32" Alias "RtlZeroMemory" _
-  (Destination As Any, ByVal Length As Long)
-Private Declare Function CryptBinaryToString Lib "crypt32.dll" Alias "CryptBinaryToStringA" _
-  (ByRef pbBinary As Any, ByVal cbBinary As Long, _
-  ByVal dwFlags As Long, ByVal pszString As String, _
-  ByRef pcchString As Long) As Long
-Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" _
-  (ByVal hwnd As Long, ByVal lpOperation As String, _
-  ByVal lpFile As String, ByVal lpParameters As String, _
-  ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
-Private Declare Sub Sleep Lib "kernel32" _
-  (ByVal dwMilliseconds As Long)
-Private Type HMAC_Info
-  HashAlgid As Long
-  pbInnerString As Byte
-  cbInnerString As Long
-  pbOuterString As Byte
-  cbOuterString As Long
-End Type
-Private Type BLOBHEADER
-  bType As Byte
-  bVersion As Byte
-  reserved As Integer
-  aiKeyAlg As Long
-End Type
-Private Type key_blob
-  hdr As BLOBHEADER
-  len As Long
-  key(1024) As Byte '// TODO might want to dynamically allocate this, Should Be Fine though
-End Type
 
 
 '-----------------------------------------------------------------------
@@ -166,7 +104,7 @@ Public Function TweetPost( _
     Optional strStatusId As String = "" _
 ) As String
   
-  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
+  Dim res As Collection
   Dim param As Object  'Scripting.Dictionary
   Dim strReqURL As String
   Dim XMLDOM As Object 'MSXML2.DOMDocument
@@ -215,7 +153,7 @@ Public Function TweetPost( _
     'その他
     Case Else
       strReqURL = post_url
-      param("status") = Left(strPost, 140) '140文字
+      param("status") = strPost '140文字
       '通常のポスト以外はは返信元ＩＤを入れる
       If Tweet_Type <> Default_Tweet And strStatusId <> "" Then
         param("in_reply_to_status_id") = strStatusId
@@ -226,30 +164,19 @@ Public Function TweetPost( _
   '署名を作成
   strSig = MakeSignature("POST", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = strSig
-  
-  'status作り直し
-  'param("status") = Left(strPost, 140) '140文字
-  
-  Set xhr = CreateRequest("POST", strReqURL)
-  If xhr Is Nothing Then
-    MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
+    
+  Set res = HttpOpen("POST", strReqURL, UrlParse(param))
+  If res Is Nothing Then
+    MsgBox "リクエストに失敗しました", vbCritical
     TweetPost = 0
     Exit Function
   End If
-  xhr.send UrlParse(param)
-  
-  '読み込みが完了するまでループ
-  Do Until xhr.readyState = 4
-    DoEvents
-  '  Sleep 100
-  Loop
   
   'ステータスがエラーの場合
-  If xhr.Status <> 200 Then
-    MsgBox xhr.getAllResponseHeaders
-    Set XMLDOM = xhr.responseXML
+  If res("Status") <> 200 Then
+    MsgBox res("getAllResponseHeaders")
+    Set XMLDOM = res("responseXML")
     If XMLDOM Is Nothing Then
-      'MsgBox xhr.ResponseText
       TweetPost = "error"
     Else
       TweetPost = XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
@@ -259,6 +186,9 @@ Public Function TweetPost( _
     TweetPost = "ok"
   End If
   
+  Set res = Nothing
+  Set param = Nothing
+  Set XMLDOM = Nothing
 End Function
 
 '成功すると「ok」を返す
@@ -288,7 +218,7 @@ Public Function StatusShow( _
   param("oauth_token") = atoken
   strReqURL = twtshow_url & strStatusId & ".xml"
   strSig = MakeSignature("GET", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
-  param("oauth_signature") = UrlEncode(strSig)
+  param("oauth_signature") = strSig
   Set xhr = CreateRequest("GET", strReqURL & "?" & UrlParse(param))
   If xhr Is Nothing Then
     MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
@@ -296,12 +226,6 @@ Public Function StatusShow( _
     Exit Function
   End If
   xhr.send
-  
-  '読み込みが完了するまでループ
-  Do Until xhr.readyState = 4
-    DoEvents
-  '  Sleep 100
-  Loop
   
   If xhr.Status <> 200 Then
     MsgBox xhr.getAllResponseHeaders
@@ -333,7 +257,7 @@ Public Function GetTimeLine _
   Optional timeline_name As TimeLineName = home_timeline, _
   Optional optdic As Object = Nothing _
 ) As Variant
-  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
+  Dim res As Collection
   Dim param As Object  'Scripting.Dictionary
   Dim XMLDOM As Object 'MSXML2.DOMDocument
   Dim Statuses As Object 'MSXML2.IXMLDOMNode
@@ -389,7 +313,7 @@ Public Function GetTimeLine _
   param("oauth_token") = atoken 'Access_Token
   param("count") = CStr(timeline_count)
   param("include_entities") = "true"  '追加
-  If Not optdic Is Nothing Then
+  If Not optdic Is Nothing Then  'オプションがあれば追加
     For Each dickey In optdic.Keys
       param(dickey) = optdic(dickey)
     Next
@@ -397,46 +321,33 @@ Public Function GetTimeLine _
   strSig = MakeSignature("GET", strTL_url, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = strSig
   
-  Set xhr = CreateRequest("GET", strTL_url & "?" & UrlParse(param))
-  If xhr Is Nothing Then
-    MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
-    GetTimeLine = 0
-    Exit Function
+  Set res = HttpOpen("GET", strTL_url & "?" & UrlParse(param))
+  If res Is Nothing Then
+    MsgBox "リクエストに失敗しました", vbCritical
+    GoTo ErrorHandler
   End If
-  xhr.send
   
-  '読み込みが完了するまでループ
-  Do Until xhr.readyState = 4
-    DoEvents
-    'Sleep 100
-  Loop
- 
-  If xhr.Status <> 200 Then
-    MsgBox xhr.getAllResponseHeaders
-    Set XMLDOM = xhr.responseXML
-    If XMLDOM Is Nothing Then
-      MsgBox xhr.responseText
-    Else
+  If res("Status") <> 200 Then
+    Set XMLDOM = res("responseXML")
+    If Not XMLDOM Is Nothing Then
       MsgBox XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
+      GetTimeLine = 0
+      Exit Function
+    Else
+      GoTo ErrorHandler
     End If
-    GetTimeLine = 0
-    Debug.Print xhr.responseText
-    Exit Function
   End If
   
   ReDim strTimeLine(param("count") - 1, 3)
-  Set XMLDOM = xhr.responseXML
+  Set XMLDOM = res("responseXML")
   XMLDOM.setProperty "SelectionLanguage", "XPath"
   Set Statuses = XMLDOM.childNodes(1)
   If Statuses Is Nothing Then
-    GetTimeLine = 0
-    Debug.Print xhr.responseText
-    Exit Function
+    GoTo ErrorHandler
   End If
   
   i = 0
   For Each objStatus In Statuses.childNodes
-'Debug.Print objStatus.selectSingleNode("user/profile_image_url").FirstChild.nodeValue
     strTimeLine(i, 0) = CStr(objStatus.selectSingleNode("id").FirstChild.nodeValue)
     strTimeLine(i, 1) = html_escape(objStatus.selectSingleNode("user/screen_name").FirstChild.nodeValue)
     If objStatus.selectSingleNode("retweeted_status/text") Is Nothing Then
@@ -462,11 +373,15 @@ Public Function GetTimeLine _
     i = i + 1
   Next
   GetTimeLine = strTimeLine
+  
+  Set res = Nothing
+  Set XMLDOM = Nothing
+  
   Exit Function
 ErrorHandler:
   GetTimeLine = 0
-  If Not xhr Is Nothing Then
-    Debug.Print xhr.responseText
+  If Not res Is Nothing Then
+    Debug.Print res("responseText")
   End If
   Debug.Print Err.Number; Err.Description
 End Function
@@ -492,7 +407,7 @@ Private Function isOAuth() As Boolean
   Set dicParam = CreateObject("Scripting.Dictionary")
 
   strSig = MakeSignature("GET", reqt_url, dicParam, UrlEncode(Consumer_secret) & "&")
-  param("oauth_signature") = UrlEncode(strSig)
+  dicParam("oauth_signature") = strSig
 
   Set xhr = CreateRequest("GET", reqt_url & "?" & UrlParse(dicParam))
   If xhr Is Nothing Then
@@ -522,7 +437,9 @@ Private Function isOAuth() As Boolean
   End If
 
   'PIN取得の為ブラウザを起動（引数にauthトークンを指定）
-  Call ShellExecute(0, "open", auth_url & "?oauth_token=" & otoken, vbNullString, vbNullString, 3)
+  With CreateObject("WScript.Shell")
+    .Run auth_url & "?oauth_token=" & otoken
+  End With
   strPin = InputBox("pinを入力")
   If strPin = "" Then
     isOAuth = False
@@ -533,7 +450,7 @@ Private Function isOAuth() As Boolean
   dicParam("oauth_verifier") = strPin '今回だけ（PINコード）
   dicParam("oauth_token") = otoken '今回だけ（authトークン）
   strSig = MakeSignature("GET", acct_url, dicParam, UrlEncode(Consumer_secret) & "&")
-  dicParam("oauth_signature") = UrlEncode(strSig)
+  dicParam("oauth_signature") = strSig
 
   Set xhr = CreateRequest("GET", acct_url & "?" & UrlParse(dicParam))
   xhr.send
@@ -562,19 +479,25 @@ Private Function isOAuth() As Boolean
     isOAuth = False '保存エラー
   End If
   
+  Exit Function
 ErrorHandler:
   isOAuth = False 'エラー
 End Function
 
 
 'xmlHttpRequestオブジェクトをオープンして返す
-Private Function CreateRequest(strMethod As String, strRequestParm As String) As Object 'MSXML2.ServerXMLHTTP60
+
+
+'リクエストする（エラーは Nothing を返す）
+Private Function HttpOpen(strMethod As String, strUrl As String, Optional strParam = "") As Object 'Collection
   Dim xhr As Object 'MSXML2.ServerXMLHTTP60
   Dim ua As String
+  Dim col As Collection
   
   On Error GoTo ErrorHandler
   
   Set xhr = CreateObject("Msxml2.ServerXMLHTTP.6.0") 'MSXML2.ServerXMLHTTP60
+  Set col = New Collection
 
   'プロキシ設定
   If Not proxy_server = "" Then
@@ -589,8 +512,7 @@ Private Function CreateRequest(strMethod As String, strRequestParm As String) As
   End If
   
   'オブジェクトを開く
-  Call xhr.Open(strMethod, strRequestParm, False) '同期処理
-  'Call xhr.Open(strMethod, strRequestParm, True)  '非同期処理
+  Call xhr.Open(strMethod, strUrl, False) '同期処理
   
   'プロキシ認証
   If Len(proxy_user) > 0 Then
@@ -604,11 +526,30 @@ Private Function CreateRequest(strMethod As String, strRequestParm As String) As
   Call xhr.setRequestHeader("Pragma", "no-cache")
   Call xhr.setRequestHeader("Cache-Control", "Private")
   Call xhr.setRequestHeader("Expires", "-1")
-  Set CreateRequest = xhr
+  
+  '送信
+  If LCase(strMethod) = "get" Then
+    xhr.send
+  Else
+    xhr.send strParam
+  End If
+  
+  'Collectionへ入れる
+  col.Add xhr.responseText, "responseText"
+  col.Add xhr.responseXML, "responseXML"
+  col.Add xhr.getAllResponseHeaders, "getAllResponseHeaders"
+  col.Add xhr.Status, "status"
+  col.Add xhr.statusText, "statusText"
+  
+  Set xhr = Nothing
+    
+  Set HttpOpen = col
+  
   Exit Function
 ErrorHandler:
-  Set CreateRequest = Nothing
+  Set HttpOpen = Nothing
 End Function
+
 
 Private Function MakeSignature(strMethod As String, strUrl As String, ByRef DictionaryObject As Object, strHmacKey As String) As String
   Dim strReqData As String
@@ -630,33 +571,31 @@ Private Function MakeSignature(strMethod As String, strUrl As String, ByRef Dict
 End Function
 
 'UTF8バイト配列を返す
-Private Function ConvUTF8_UTF8Encoding(strValue)
+Private Function ConvUTF8(strValue)
+  On Error Resume Next
   Dim UTF8_enc
   Dim bytBuff
+  
   Set UTF8_enc = CreateObject("System.Text.UTF8Encoding")
-  'バイト配列へ ('_4'の追加で、強制的に指定のオーバーロードメソッドを呼び出す裏技(オーバーロードさせない))
-  ConvUTF8_UTF8Encoding = UTF8_enc.GetBytes_4(strValue)
-  Set UTF8_enc = Nothing
-End Function
-
-
-'UTF8バイト配列を返す
-Private Function ConvUTF8_ADODBStream(strValue)
-  Dim UTF8_enc
-  Dim bytBuff
-  Set UTF8_enc = CreateObject("ADODB.Stream")
-  With UTF8_enc
-    .Open
-    .Type = 2   'adTypeText
-    .Charset = "utf-8"
-    .WriteText = strValue
-    .Position = 0
-    .Type = 1   'adTypeBinary
-    .Position = 3 'utf-8はオフセットさせる
-    bytBuff = .Read()
-    .Close
-  End With
-  ConvUTF8_ADODBStream = bytBuff
+  If Not UTF8_enc Is Nothing Then
+    'バイト配列へ ('_4'の追加で、強制的に指定のオーバーロードメソッドを
+    '呼び出す裏技(オーバーロードさせない))
+    bytBuff = UTF8_enc.GetBytes_4(strValue)
+  Else
+    Set UTF8_enc = CreateObject("ADODB.Stream")
+    With UTF8_enc
+      .Open
+      .Type = 2   'adTypeText
+      .Charset = "utf-8"
+      .WriteText = strValue
+      .Position = 0
+      .Type = 1   'adTypeBinary
+      .Position = 3 'utf-8はオフセットさせる
+      bytBuff = .Read()
+      .Close
+    End With
+  End If
+  ConvUTF8 = bytBuff
   Set UTF8_enc = Nothing
 End Function
 
@@ -670,7 +609,7 @@ Private Function UrlEncode(ByVal strTarget)
       Case "a" To "z", "A" To "Z", "0" To "9", "_", ".", "~", "-"
         s = s & tmp
       Case Else
-        For Each b In ConvUTF8_UTF8Encoding(tmp)
+        For Each b In ConvUTF8(tmp)
           s = s & "%" & Right("0" & Hex(b), 2)
         Next
     End Select
@@ -690,7 +629,7 @@ Private Function encodeURIComponent(ByVal strValue)
       Case " "
         s = s & "+"
       Case Else
-        For Each b In ConvUTF8_UTF8Encoding(tmp)
+        For Each b In ConvUTF8(tmp)
           s = s & "%" & Right("0" & Hex(b), 2)
         Next
     End Select
@@ -852,7 +791,7 @@ Private Function hmac(ByVal strKey As String, ByVal strData As String) As String
   '* be able to import longer keys (HMAC-SHA1 uses 20-byte key).
   '*/
   keyblob.hdr.aiKeyAlg = CALG_RC2
-  keyblob.len = key_len
+  keyblob.Len = key_len
   Call ZeroMemory(keyblob.key(0), key_len)
   Call CopyMemory(keyblob.key(0), bytKey(0), key_len)
   ret = CryptImportKey(lngProv, keyblob, 12 + key_len, 0, CRYPT_IPSEC_HMAC_KEY, lngKey)
@@ -927,8 +866,8 @@ Private Function hmac2(ByVal strKey, ByVal strData) As String
   
   If strKey = "" And strData = "" Then Exit Function
       
-  bytKey = ConvUTF8_UTF8Encoding(strKey)
-  bytData = ConvUTF8_UTF8Encoding(strData)
+  bytKey = ConvUTF8(strKey)
+  bytData = ConvUTF8(strData)
 
   Set HMACSHA1 = CreateObject("System.Security.Cryptography.HMACSHA1")
   HMACSHA1.key = bytKey
@@ -963,6 +902,7 @@ Private Function ConvertCreateTime(strCreated_at As String) As Date
 End Function
 
 'TwitterAPIのレスポンスからTokenを抜き出す
+'エラーなら空白を返す
 Private Function GetOAuthToken(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
@@ -980,6 +920,7 @@ ErrorHandler:
 End Function
 
 'TwitterAPIのレスポンスからsecretを抜き出す
+'エラーなら空白を返す
 Private Function GetOAuthToken_secret(strTarget As String) As String
   Dim s, a, v
   s = Split(strTarget, "&")
@@ -1008,7 +949,8 @@ Private Function html_escape(strString As String) As String
   html_escape = strTemp
 End Function
 
-'アクセストークンをファイル名をフルパスで返す
+'アクセストークンを保存するファイル名をフルパスで返す
+'エラーなら空白を返す
 Private Function GetTokenFileName() As String
   Dim strFileName As String
   Dim i As Long
@@ -1039,7 +981,8 @@ ErrorHandler:
 End Function
 
 'アクセストークンを読み出す。
-'戻り値はバリアント配列(access_token,access_token_secret)。エラーならゼロを返す
+'戻り値はバリアント配列(access_token,access_token_secret)。
+'エラーならFalseを返す
 Private Function GetToken() As Variant
   Dim intFileNo As Integer
   Dim strFileName As String
@@ -1064,7 +1007,7 @@ Private Function GetToken() As Variant
   GetToken = strData
   Exit Function
 ErrorHandler:
-  GetToken = 0
+  GetToken = False
 End Function
 
 'アクセストークンを保存する。エラーならFalseを返す
@@ -1089,4 +1032,3 @@ Private Function SaveToken(access_token As String, access_token_secret As String
 ErrorHandler:
   SaveToken = False
 End Function
-
