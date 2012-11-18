@@ -26,7 +26,7 @@ End Enum
 Public Enum DelType
   status_delete = 1 'ツイート削除
   dm_delete = 2     'ダイレクトメッセージ削除
-  fv_delete = 3     'ダイレクトメッセージ削除
+  fv_delete = 3     'お気に入り削除
 End Enum
 
 '-----------------------------------
@@ -42,7 +42,13 @@ End Type
 '-----------------------------------
 'UserAgent
 '-----------------------------------
-Private Const UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1) "
+Private Const UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1;" & _
+                          ".NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1) "
+'-----------------------------------
+'Temporary Internet Files
+'-----------------------------------
+Private Const UseImageFile = True 'イメージを使うか
+Private Const IeTempInternetFiles = "" '(空白でIEと同じ場所)
 '-----------------------------------
 'PROXY 設定(使う場合はユーザ名：パスワードで指定)
 '-----------------------------------
@@ -104,7 +110,7 @@ Public Function TweetPost( _
     Optional strStatusId As String = "" _
 ) As String
   
-  Dim res As Collection
+  Dim res As Object
   Dim param As Object  'Scripting.Dictionary
   Dim strReqURL As String
   Dim XMLDOM As Object 'MSXML2.DOMDocument
@@ -112,7 +118,7 @@ Public Function TweetPost( _
   Dim strSig As String
   Dim i As Long
 
-  If Not IsArray(GetToken) Then
+  If GetToken Is Nothing Then
     If isOAuth = False Then
       MsgBox "アクセストークンが取得できませんでした", vbCritical
       TweetPost = ""
@@ -120,12 +126,12 @@ Public Function TweetPost( _
     End If
   End If
   
-  atoken = GetToken(0)
-  atoken_secret = GetToken(1)
+  atoken = GetToken(1)
+  atoken_secret = GetToken(2)
   
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
-  param("source") = "ExcelTweet"
+  param("source") = "ExcelTweeter"
   
   'ポストの種類で処理分岐
   Select Case Tweet_Type
@@ -195,42 +201,43 @@ End Function
 Public Function StatusShow( _
   strStatusId As String _
 ) As String
-  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
-  Dim param As Object  'Scripting.Dictionary
+  Dim res As Object     'Collection
+  Dim param As Object   'Scripting.Dictionary
   Dim strReqURL As String
-  Dim XMLDOM As Object 'MSXML2.DOMDocument
+  Dim XMLDOM As Object  'MSXML2.DOMDocument
   Dim atoken As String, atoken_secret As String
   Dim strSig As String
   Dim i As Long
 
-  If Not IsArray(GetToken) Then
+  If GetToken Is Nothing Then
     If isOAuth = False Then
-      MsgBox "アクセストークンが取得できませんでした", vbCritical
-      StatusShow = "error"
+      'MsgBox "アクセストークンが取得できませんでした", vbCritical
+      StatusShow = "Error / アクセストークンが取得できませんでした"
       Exit Function
     End If
   End If
   
-  atoken = GetToken(0)
-  atoken_secret = GetToken(1)
+  atoken = GetToken(1)
+  atoken_secret = GetToken(2)
   
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken
   strReqURL = twtshow_url & strStatusId & ".xml"
   strSig = MakeSignature("GET", strReqURL, param, UrlEncode(Consumer_secret) & "&" & UrlEncode(atoken_secret))
   param("oauth_signature") = strSig
-  Set xhr = CreateRequest("GET", strReqURL & "?" & UrlParse(param))
-  If xhr Is Nothing Then
+  
+  Set res = HttpOpen("GET", strReqURL & "?" & UrlParse(param))
+  If res Is Nothing Then
     MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
     StatusShow = "error"
     Exit Function
   End If
-  xhr.send
   
-  If xhr.Status <> 200 Then
+  If res("Status") <> 200 Then
     MsgBox xhr.getAllResponseHeaders
     Set XMLDOM = xhr.responseXML
     If XMLDOM Is Nothing Then
+      Debug.Print res("Status") & ":" & res("StatusText")
       'MsgBox xhr.ResponseText
       StatusShow = "error"
     Else
@@ -239,7 +246,6 @@ Public Function StatusShow( _
     Exit Function
   Else
     StatusShow = "ok"
-    Debug.Print xhr.responseText
   End If
 End Function
 
@@ -248,6 +254,7 @@ End Function
 '(x,1):screen name
 '(x,2):tweet text
 '(x,3):create time
+'(x,4):image file
 '引数 timeline_count:取得するタイムラインの数
 '     timeline_name:タイムラインの種類
 '     otpdic:その他指定項目をハッシュで渡す
@@ -257,7 +264,7 @@ Public Function GetTimeLine _
   Optional timeline_name As TimeLineName = home_timeline, _
   Optional optdic As Object = Nothing _
 ) As Variant
-  Dim res As Collection
+  Dim res As Object
   Dim param As Object  'Scripting.Dictionary
   Dim XMLDOM As Object 'MSXML2.DOMDocument
   Dim Statuses As Object 'MSXML2.IXMLDOMNode
@@ -270,10 +277,13 @@ Public Function GetTimeLine _
   Dim strTL_url As String
   Dim dickey As Variant       'scripting.dictionary key
   Dim urls As Object 'entities
-
+  Dim res_img As Object
+  Dim bytimg() As Byte
+  Dim strImgPath As String
+  
   On Error GoTo ErrorHandler
   
-  If Not IsArray(GetToken) Then
+  If GetToken Is Nothing Then
     If isOAuth = False Then
       MsgBox "アクセストークンが取得できませんでした", vbCritical
       GetTimeLine = 0
@@ -306,8 +316,8 @@ Public Function GetTimeLine _
       Exit Function
   End Select
   
-  atoken = GetToken(0)
-  atoken_secret = GetToken(1)
+  atoken = GetToken(1)
+  atoken_secret = GetToken(2)
 
   Set param = CreateObject("Scripting.Dictionary")
   param("oauth_token") = atoken 'Access_Token
@@ -330,7 +340,7 @@ Public Function GetTimeLine _
   If res("Status") <> 200 Then
     Set XMLDOM = res("responseXML")
     If Not XMLDOM Is Nothing Then
-      MsgBox XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
+      Debug.Print XMLDOM.selectSingleNode("hash/error").FirstChild.nodeValue
       GetTimeLine = 0
       Exit Function
     Else
@@ -338,8 +348,13 @@ Public Function GetTimeLine _
     End If
   End If
   
-  ReDim strTimeLine(param("count") - 1, 3)
-  Set XMLDOM = res("responseXML")
+  ReDim strTimeLine(param("count") - 1, 4)
+  'Set XMLDOM = res("responseXML")
+  Set XMLDOM = CreateObject("MSXML2.DOMDocument")
+  If XMLDOM.loadXML(Replace(Replace(res("responseText"), vbLf, ""), vbCr, "")) = False Then
+    GoTo ErrorHandler
+  End If
+  
   XMLDOM.setProperty "SelectionLanguage", "XPath"
   Set Statuses = XMLDOM.childNodes(1)
   If Statuses Is Nothing Then
@@ -361,6 +376,28 @@ Public Function GetTimeLine _
     End If
     strTimeLine(i, 3) = html_escape(Format(ConvertCreateTime(objStatus.selectSingleNode("created_at").FirstChild.nodeValue), "yy-mm-dd hh:mm"))
     
+    'プロフィールイメージ(リファクタリングの必要あり)
+    If UseImageFile = True Then
+      strTimeLine(i, 4) = objStatus.selectSingleNode("user/profile_image_url_https").FirstChild.nodeValue
+      strImgPath = GetIeTempInternetFiles & strTimeLine(i, 1) & Mid(strTimeLine(i, 4), InStrRev(strTimeLine(i, 4), "."), 4)
+      
+      '既に保存してあるものはダウンロードしない
+      If Dir(strImgPath) = "" Then
+        'プロフィールイメージをダウンロード
+        Set res_img = HttpOpen("GET", strTimeLine(i, 4))
+        If Not res_img Is Nothing Then
+          '書き込み
+          Open strImgPath For Binary As #1
+            bytimg() = res_img("responseBody")
+            Put #1, , bytimg()
+          Close #1
+          Set res_img = Nothing
+          Debug.Print "download..", strImgPath
+        End If
+      End If
+      strTimeLine(i, 4) = strImgPath
+    End If
+    
     't.co対策
     If objStatus.selectNodes("entities/urls/url").Length > 0 Then  'entities/urlsに入るのであるか確認
       'urlsを取得（複数ある）
@@ -370,10 +407,10 @@ Public Function GetTimeLine _
       Next
     End If
     
+    
     i = i + 1
   Next
   GetTimeLine = strTimeLine
-  
   Set res = Nothing
   Set XMLDOM = Nothing
   
@@ -384,6 +421,7 @@ ErrorHandler:
     Debug.Print res("responseText")
   End If
   Debug.Print Err.Number; Err.Description
+  Close #1
 End Function
 
 
@@ -393,8 +431,8 @@ End Function
 
 'コンシューマキーを使ってアクセストークンを取得してファイルに保存する。
 Private Function isOAuth() As Boolean
-  Dim xhr As Object 'MSXML2.ServerXMLHTTP60
-  Dim dicParam As Scripting.Dictionary
+  Dim res As Object
+  Dim dicParam As Object 'Scripting.Dictionary
   Dim strRes As String
   Dim otoken As String, otoken_secret As String
   Dim atoken As String, atoken_secret As String
@@ -409,22 +447,21 @@ Private Function isOAuth() As Boolean
   strSig = MakeSignature("GET", reqt_url, dicParam, UrlEncode(Consumer_secret) & "&")
   dicParam("oauth_signature") = strSig
 
-  Set xhr = CreateRequest("GET", reqt_url & "?" & UrlParse(dicParam))
-  If xhr Is Nothing Then
-    MsgBox "リクエストオブジェクトが作成できませんでした", vbCritical
+  Set res = HttpOpen("GET", reqt_url & "?" & UrlParse(dicParam))
+  If res Is Nothing Then
     isOAuth = False
     Exit Function
   End If
-  xhr.send '送信
   
   '取得失敗
-  If xhr.Status <> 200 Then
-    isOAuth = False
-    Exit Function
+  If res("Status") <> 200 Then
+    Debug.Print "authトークン取得エラー"
+    Debug.Print res("Status") & ":" & res("StatusText")
+    GoTo ErrorHandler
   End If
   
   'レスポンステキスト
-  strRes = xhr.responseText
+  strRes = res("responseText")
   
   'authトークン（一時的に使う）
   otoken = GetOAuthToken(strRes)
@@ -432,8 +469,8 @@ Private Function isOAuth() As Boolean
 
   'レスポンスにトークンが含まれていない場合
   If otoken = "" Or otoken_secret = "" Then
-    isOAuth = False
-    Exit Function
+    Debug.Print "authトークン取得エラー"
+    GoTo ErrorHandler
   End If
 
   'PIN取得の為ブラウザを起動（引数にauthトークンを指定）
@@ -442,33 +479,37 @@ Private Function isOAuth() As Boolean
   End With
   strPin = InputBox("pinを入力")
   If strPin = "" Then
-    isOAuth = False
-    Exit Function
+    Debug.Print "pin入力エラー"
+    GoTo ErrorHandler
   End If
 
+  Set res = Nothing
   dicParam.RemoveAll
   dicParam("oauth_verifier") = strPin '今回だけ（PINコード）
-  dicParam("oauth_token") = otoken '今回だけ（authトークン）
+  dicParam("oauth_token") = otoken    '今回だけ（authトークン）
   strSig = MakeSignature("GET", acct_url, dicParam, UrlEncode(Consumer_secret) & "&")
   dicParam("oauth_signature") = strSig
 
-  Set xhr = CreateRequest("GET", acct_url & "?" & UrlParse(dicParam))
-  xhr.send
+  Set res = HttpOpen("GET", acct_url & "?" & UrlParse(dicParam))
   
-  If xhr.Status <> 200 Then
-    isOAuth = False
-    Exit Function
+  If res("Status") <> 200 Then
+    Debug.Print "アクセストークン取得エラー"
+    Debug.Print res("Status") & ":" & res("StatusText")
+    GoTo ErrorHandler
   End If
 
   'レスポンステキスト
-  strRes = xhr.responseText
+  strRes = res("responseText")
   
+  'アクセストークンの取得
   atoken = GetOAuthToken(strRes)
   atoken_secret = GetOAuthToken_secret(strRes)
 
   'レスポンスにトークンが含まれていない場合
   If atoken = "" Or atoken_secret = "" Then
-    isOAuth = False
+    Debug.Print "アクセストークン取得エラー"
+    Debug.Print res("Status") & ":" & res("StatusText")
+    GoTo ErrorHandler
     Exit Function
   End If
 
@@ -483,9 +524,6 @@ Private Function isOAuth() As Boolean
 ErrorHandler:
   isOAuth = False 'エラー
 End Function
-
-
-'xmlHttpRequestオブジェクトをオープンして返す
 
 
 'リクエストする（エラーは Nothing を返す）
@@ -522,6 +560,9 @@ Private Function HttpOpen(strMethod As String, strUrl As String, Optional strPar
   End If
   
   'リクエストヘッダーのセット
+  If LCase(strMethod) = "post" Then
+    Call xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded")
+  End If
   Call xhr.setRequestHeader("User-Agent", ua)
   Call xhr.setRequestHeader("Pragma", "no-cache")
   Call xhr.setRequestHeader("Cache-Control", "Private")
@@ -534,17 +575,30 @@ Private Function HttpOpen(strMethod As String, strUrl As String, Optional strPar
     xhr.send strParam
   End If
   
+  On Error Resume Next
   'Collectionへ入れる
-  col.Add xhr.responseText, "responseText"
-  col.Add xhr.responseXML, "responseXML"
-  col.Add xhr.getAllResponseHeaders, "getAllResponseHeaders"
-  col.Add xhr.Status, "status"
-  col.Add xhr.statusText, "statusText"
+  col.Add "", "RequestUrl"   'リクエストURL
+  col.Add "", "Data"      'POSTリクエスト時のデータ
+  col.Add Nothing, "responseBody"
+  col.Add "", "responseText"
+  col.Add Nothing, "responseXML"
+  col.Add "", "getAllResponseHeaders"
+  col.Add 0, "status"
+  col.Add "", "statusText"
+  
+  '一回削除して入れ直す
+  col.Remove "RequestUrl": col.Add strUrl, "RequestUrl"   'リクエストURL
+  col.Remove "Data": col.Add strParam, "Data"       'POSTリクエスト時のデータ
+  col.Remove "responseBody": col.Add xhr.responseBody, "responseBody"
+  col.Remove "responseText": col.Add xhr.responseText, "responseText"
+  col.Remove "responseXML": col.Add xhr.responseXML, "responseXML"
+  col.Remove "getAllResponseHeaders": col.Add xhr.getAllResponseHeaders, "getAllResponseHeaders"
+  col.Remove "status": col.Add xhr.Status, "status"
+  col.Remove "statusText": col.Add xhr.statusText, "statusText"
   
   Set xhr = Nothing
-    
   Set HttpOpen = col
-  
+  On Error GoTo 0
   Exit Function
 ErrorHandler:
   Set HttpOpen = Nothing
@@ -564,10 +618,8 @@ Private Function MakeSignature(strMethod As String, strUrl As String, ByRef Dict
   DictionaryObject("oauth_nonce") = CStr(Int((100000000000# - 10000000 + 1) * Rnd + 10000000)) '適当に一意な値
   
   strReqData = strMethod & "&" & UrlEncode(strUrl) & "&" & UrlEncode(UrlParse(DictionaryObject))
-  strDigest = hmac2(strHmacKey, strReqData)
-  buf = StrToBynary(strDigest)
-  MakeSignature = Trim(EncodeBase64_2(buf)) '& vbLf
-  
+  buf = hmac(strHmacKey, strReqData)
+  MakeSignature = EncodeBase64(buf)
 End Function
 
 'UTF8バイト配列を返す
@@ -603,15 +655,14 @@ End Function
 Private Function UrlEncode(ByVal strTarget)
   Dim s, b, tmp
   Dim i
-  For i = 0 To Len(strTarget) - 1
-    tmp = Mid(strTarget, i + 1, 1)
+  b = ConvUTF8(strTarget)
+  For i = 0 To UBound(b)
+    tmp = Chr(b(i))
     Select Case tmp
       Case "a" To "z", "A" To "Z", "0" To "9", "_", ".", "~", "-"
         s = s & tmp
       Case Else
-        For Each b In ConvUTF8(tmp)
-          s = s & "%" & Right("0" & Hex(b), 2)
-        Next
+        s = s & "%" & Right("0" & Hex(b(i)), 2)
     End Select
   Next
   UrlEncode = s
@@ -621,47 +672,32 @@ End Function
 Private Function encodeURIComponent(ByVal strValue)
   Dim s, b, tmp
   Dim i
-  For i = 0 To Len(strValue) - 1
-    tmp = Mid(strValue, i + 1, 1)
+  b = ConvUTF8(strTarget)
+  For i = 0 To UBound(b)
+    tmp = Chr(b(i))
     Select Case tmp
       Case "a" To "z", "A" To "Z", "0" To "9", "'", "_", ".", "~", "/", "-", "*", "(", ")"
         s = s & tmp
       Case " "
         s = s & "+"
       Case Else
-        For Each b In ConvUTF8(tmp)
-          s = s & "%" & Right("0" & Hex(b), 2)
-        Next
+        s = s & "%" & Right("0" & Hex(b(i)), 2)
     End Select
   Next
   encodeURIComponent = s
 End Function
 
-'win32API(恐らくwin2000から動く)
-Private Function encodeBase64(bytTarget() As Byte) As String
-  Dim strBase64 As String
-  Dim lngBase64_Len As Long
-  Dim ret As Long
-  Const CRYPT_STRING_BASE64 As Long = 1
-  '必要な容量を計算
-  ret = CryptBinaryToString(bytTarget(0), UBound(bytTarget) + 1, CRYPT_STRING_BASE64, vbNullString, lngBase64_Len)
-  If ret Then
-      strBase64 = Space(lngBase64_Len)
-      ret = CryptBinaryToString(bytTarget(0), UBound(bytTarget) + 1, CRYPT_STRING_BASE64, strBase64, Len(strBase64))
-  End If
-  encodeBase64 = Mid(strBase64, 1, lngBase64_Len - 3)
-End Function
-
-'ActiveX版
-Private Function EncodeBase64_2(bytes)
+'ActiveX版(Base64エンコード)
+Private Function EncodeBase64(bytes)
   Dim dom, elm
   Set dom = CreateObject("Microsoft.XMLDOM")
   Set elm = dom.createElement("tmp")
   elm.DataType = "bin.base64"
   elm.nodeTypedValue = bytes
-  EncodeBase64_2 = elm.Text
+  EncodeBase64 = elm.Text
+  Set dom = Nothing
+  Set elm = Nothing
 End Function
-
 
 'keyをソートして配列を返す
 Private Function KeySort(dictionary_object As Object) As Variant
@@ -700,7 +736,9 @@ Private Function UrlParse(dictionary_object As Object) As String
   On Error Resume Next
   d = KeySort(dictionary_object)
   For i = 0 To UBound(d)
-    strReqData = strReqData & "&" & encodeURIComponent(CStr(d(i))) & "=" & encodeURIComponent(dictionary_object(d(i)))
+    'strReqData = strReqData & "&" & encodeURIComponent(CStr(d(i))) & "=" & encodeURIComponent(dictionary_object(d(i)))
+    'なぜかTwitterではエラーになるので対策
+    strReqData = strReqData & "&" & UrlEncode(CStr(d(i))) & "=" & UrlEncode(dictionary_object(d(i)))
   Next
   If Err.Number = 0 Then
     UrlParse = Mid(strReqData, 2)
@@ -710,152 +748,9 @@ Private Function UrlParse(dictionary_object As Object) As String
   On Error GoTo 0
 End Function
 
-'暗号化
-Private Function hmac(ByVal strKey As String, ByVal strData As String) As String
-  Dim bytKey() As Byte
-  Dim bytData() As Byte
-  Dim ret As Long
-  Dim lngProv As Long       'コンテナオブジェクト
-  Dim lngHash As Long       'ハッシュオブジェクト
-  Dim lngHmacHash As Long   'ハッシュオブジェクト
-  Dim lngHashSize As Long   'ハッシュサイズ
-  Dim lngKey As Long        'キーオブジェクト
-  Dim bytBuff() As Byte     'ハッシュが格納されるエリア
-  Dim strHex As String      '16進数文字列
-  Dim i As Long
-  Dim HmacInfo As HMAC_Info
-  Dim keyblob As key_blob
-  Dim key_len As Long
-  Const CRYPT_VERIFYCONTEXT As Long = &HF0000000
-  Const MS_DEF_PROV As String = "Microsoft Base Cryptographic Provider v1.0"
-  Const ALG_TYPE_ANY As Long = 0
-  Const ALG_CLASS_HASH As Long = 32768
-  Const ALG_TYPE_BLOCK As Long = 1536
-  Const ALG_SID_SHA As Long = 4
-  Const ALG_SID_SHA1 As Long = ALG_SID_SHA
-  Const ALG_CLASS_DATA_ENCRYPT As Long = 24576
-  Const ALG_TYPE_STREAM As Long = 2048
-  Const ALG_SID_RC4 As Long = 1
-  Const ALG_SID_RC2 As Long = 2
-  Const ALG_SID_HMAC As Long = 9
-  Const CALG_SHA As Long = ALG_CLASS_HASH Or ALG_TYPE_ANY Or ALG_SID_SHA
-  Const CALG_SHA1 As Long = CALG_SHA
-  Const CALG_RC2 As Long = ALG_CLASS_DATA_ENCRYPT Or ALG_TYPE_BLOCK Or ALG_SID_RC2
-  Const CALG_RC4 As Long = ALG_CLASS_DATA_ENCRYPT Or ALG_TYPE_STREAM Or ALG_SID_RC4
-  Const CALG_HMAC As Long = ALG_CLASS_HASH Or ALG_TYPE_ANY Or ALG_SID_HMAC
-  Const HP_HMAC_INFO = &H5
-  Const HP_HASHVAL As Long = 2
-  Const PROV_RSA_FULL As Long = 1
-  Const PLAINTEXTKEYBLOB As Long = 8
-  Const CUR_BLOB_VERSION As Long = 2
-  Const CRYPT_IPSEC_HMAC_KEY = &H100
-  
-  If strKey = "" And strData = "" Then Exit Function
-  
-  hmac = ""
-  strHex = ""
-  
-  'バイト配列へ
-  bytKey = StrConv(strKey, vbFromUnicode)
-  bytData = StrConv(strData, vbFromUnicode)
-
-  '1024バイトチェック
-  key_len = UBound(bytKey) + 1
-  If key_len > 1024 Then
-    hmac = ""
-    Exit Function
-  End If
-
-  'キーコンテナの作成
-  ret = CryptAcquireContext(lngProv, vbNullString, vbNullString, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-
-'  '鍵作り
-'  ret = CryptDeriveKey(lngProv, CALG_RC2, lngHash, 0, lngKey)
-'  If ret = False Then
-'    Call CryptDestroyKey(lngKey)
-'    GoTo ExitHandler
-'  End If
-
-  '// key creation based on
-  '// http://mirror.leaseweb.com/NetBSD/NetBSD-release-5-0/src/dist/wpa/src/crypto/crypto_cryptoapi.c
-  keyblob.hdr.bType = PLAINTEXTKEYBLOB
-  keyblob.hdr.bVersion = CUR_BLOB_VERSION
-  keyblob.hdr.reserved = 0
-  '/*
-  '* Note: RC2 is not really used, but that can be used to
-  '* import HMAC keys of up to 16 byte long.
-  '* CRYPT_IPSEC_HMAC_KEY flag for CryptImportKey() is needed to
-  '* be able to import longer keys (HMAC-SHA1 uses 20-byte key).
-  '*/
-  keyblob.hdr.aiKeyAlg = CALG_RC2
-  keyblob.Len = key_len
-  Call ZeroMemory(keyblob.key(0), key_len)
-  Call CopyMemory(keyblob.key(0), bytKey(0), key_len)
-  ret = CryptImportKey(lngProv, keyblob, 12 + key_len, 0, CRYPT_IPSEC_HMAC_KEY, lngKey)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-  
-  'ハッシュオブジェクトの作成
-  ret = CryptCreateHash(lngProv, CALG_HMAC, lngKey, 0, lngHmacHash)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-  
-  'パラメータセット
-  HmacInfo.HashAlgid = CALG_SHA1
-  ret = CryptSetHashParam(lngHmacHash, HP_HMAC_INFO, HmacInfo, 0)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-
-  'ハッシュデータを作る
-  ret = CryptHashData(lngHmacHash, bytData(0), UBound(bytData) + 1, 0)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-
-  '必要なサイズを取得
-  ret = CryptGetHashParam(lngHmacHash, HP_HASHVAL, ByVal 0, lngHashSize, 0)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-  
-  'ハッシュを取り出す
-  ReDim bytBuff(lngHashSize - 1)
-  For i = 0 To UBound(bytBuff)
-    bytBuff(i) = 0
-  Next
-  ret = CryptGetHashParam(lngHmacHash, HP_HASHVAL, bytBuff(0), lngHashSize, 0)
-  If ret = False Then
-    GoTo ExitHandler
-  End If
-
-  'HEX文字列へ
-  For i = 0 To UBound(bytBuff)
-    strHex = strHex & Right("0" & LCase(Hex(bytBuff(i))), 2)
-  Next
-  
-ExitHandler:
-  If (lngHmacHash) Then
-    CryptDestroyHash (lngHmacHash)
-  End If
-  If (lngKey) Then
-    Call CryptDestroyKey(lngKey)
-  End If
-  If (lngHash) Then
-    Call CryptDestroyHash(lngHash)
-  End If
-  If (lngProv) Then
-    Call CryptReleaseContext(lngProv, 0)
-  End If
-  hmac = strHex
-End Function
-
-Private Function hmac2(ByVal strKey, ByVal strData) As String
+'Hmac(SHA1)恐らくwin200以降なら動く
+'バイナリを返すようにする(edit 2012/10/01)
+Private Function hmac(ByVal strKey, ByVal strData)
   Dim HMACSHA1
   Dim bytUTF8
   Dim bytKey
@@ -864,8 +759,6 @@ Private Function hmac2(ByVal strKey, ByVal strData) As String
   Dim i
   Dim strHex
   
-  If strKey = "" And strData = "" Then Exit Function
-      
   bytKey = ConvUTF8(strKey)
   bytData = ConvUTF8(strData)
 
@@ -874,26 +767,8 @@ Private Function hmac2(ByVal strKey, ByVal strData) As String
   HMACSHA1.ComputeHash_2 (bytData)
   bytBuff = HMACSHA1.Hash
   
-  'HEX文字列へ
-  For i = 0 To UBound(bytBuff)
-    strHex = strHex & Right("0" & LCase(Hex(bytBuff(i))), 2)
-  Next
-  
   Set HMACSHA1 = Nothing
-  hmac2 = strHex
-End Function
-
-
-'バイト文字列からバイト配列を返す
-Private Function StrToBynary(strHexString As String) As Byte()
-  Dim buf() As Byte
-  Dim i As Long
-  
-  ReDim Preserve buf(Len(CStr(strHexString)) \ 2 - 1)
-  For i = 0 To Len(CStr(strHexString)) \ 2 - 1
-    buf(i) = CByte("&h" & Mid(CStr(strHexString), i * 2 + 1, 2))
-  Next
-  StrToBynary = buf
+  hmac = bytBuff
 End Function
 
 'TwitterAPIの作成日から日付型の変数を返す
@@ -981,30 +856,41 @@ ErrorHandler:
 End Function
 
 'アクセストークンを読み出す。
-'戻り値はバリアント配列(access_token,access_token_secret)。
+'戻り値はCollectionオブジェクト(access_token,access_token_secret)。
 'エラーならFalseを返す
 Private Function GetToken() As Variant
   Dim intFileNo As Integer
   Dim strFileName As String
   Dim strData(1) As String
+  Dim col As Collection
   
   On Error GoTo ErrorHandler
+  
+  '設定ファイル名を取得
   strFileName = GetTokenFileName()
   If strFileName = "" Then
-    GetToken = 0
-    Exit Function
-  End If
-  If Dir(strFileName) = "" Then
-    GetToken = 0
+    GetToken = False
     Exit Function
   End If
   
+  'ファイル存在確認
+  If Dir(strFileName) = "" Then
+    GetToken = False
+    Exit Function
+  End If
+  
+  'ファイル読み込み
   intFileNo = FreeFile()
   Open strFileName For Input As #intFileNo
-  Input #intFileNo, strData(0)
-  Input #intFileNo, strData(1)
+    Input #intFileNo, strData(0)
+    Input #intFileNo, strData(1)
   Close #intFileNo
-  GetToken = strData
+  
+  Set col = New Collection
+  col.Add strData(0), "access_token"
+  col.Add strData(1), "access_token_secret"
+  Set GetToken = col
+  
   Exit Function
 ErrorHandler:
   GetToken = False
@@ -1016,19 +902,40 @@ Private Function SaveToken(access_token As String, access_token_secret As String
   Dim strFileName As String
   
   On Error GoTo ErrorHandler
+  
+  '設定ファイル名を取得
   strFileName = GetTokenFileName()
   If strFileName = "" Then
     SaveToken = False
     Exit Function
   End If
   
+  '書き込み
   intFileNo = FreeFile()
   Open strFileName For Output As #intFileNo
-  Print #intFileNo, access_token
-  Print #intFileNo, access_token_secret
+    Print #intFileNo, access_token
+    Print #intFileNo, access_token_secret
   Close #intFileNo
   SaveToken = True
+  
   Exit Function
 ErrorHandler:
   SaveToken = False
+End Function
+
+'インターネットキャッシュフォルダを返す
+Private Function GetIeTempInternetFiles()
+  If IeTempInternetFiles = "" Then
+    With CreateObject("Shell.Application")
+      GetIeTempInternetFiles = Environ("userprofile") & "\Local Settings\" & .Namespace(32) & "\Content.IE5\ExcelTweeter\"
+      If Dir(GetIeTempInternetFiles, vbDirectory) = "" Then
+        With CreateObject("Scripting.FileSystemObject")
+          Call .CreateFolder(GetIeTempInternetFiles)
+          Exit Function
+        End With
+      End If
+    End With
+  Else
+    GetIeTempInternetFiles = IeTempInternetFiles
+  End If
 End Function
