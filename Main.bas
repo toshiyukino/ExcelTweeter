@@ -321,9 +321,11 @@ Private Sub PrintTimeLine(tl_name As TimeLineName, _
         .WrapText = True
         .Font.ColorIndex = xlAutomatic
         .Font.Size = 9
+        .IndentLevel = 1  'アイコン表示用
       End With
       'セルに何のタイムラインか書いておく
       .Range("A1").Value = tl_name
+      .Pictures.Delete
     End If
   End With
   
@@ -354,6 +356,11 @@ Private Sub PrintTimeLine(tl_name As TimeLineName, _
         Syntax .Cells(j, 2)
         j = j + 1
       Loop
+      
+      'アイコン表示
+      For i = 0 To UBound(vntTimeLine)
+        AddProfileImage .Cells(i + start_row, 2), vntTimeLine(i, 4)
+      Next
       
       '追加取得用
       .Cells(.Cells(.Cells.Rows.Count, 2).End(xlUp).Row + 1, 2).Value = "More..."
@@ -432,6 +439,22 @@ Sub Syntax(Target As Range)
     Target.Characters(Match.FirstIndex + 1, Match.Length).Font.ColorIndex = 5
   Next
 
+End Sub
+
+'イメージ表示用
+Sub AddProfileImage(strTarget As Range, ByVal strPath As String)
+  Dim myShape As Shape
+  
+  If strPath = "" Then Exit Sub
+  
+  Set myShape = ThisWorkbook.Worksheets(1).Shapes.AddPicture( _
+        Filename:=strPath, _
+        LinkToFile:=True, _
+        SaveWithDocument:=False, _
+        Left:=strTarget.Left, _
+        Top:=strTarget.Top, _
+        Width:=16, _
+        Height:=16)
 End Sub
 
 
